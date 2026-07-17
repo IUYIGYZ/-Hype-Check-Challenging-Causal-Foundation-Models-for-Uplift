@@ -1,0 +1,43 @@
+{
+  "dataset": "retailhero",
+  "outcome": "Y",
+  "cleaned_root": "/home/zys/eeg-related-master/eeg-related-2026.3.9/项目/data/data_A_cleaned",
+  "group_safe_split": false,
+  "seed": 31,
+  "max_rows": 1000,
+  "n_transformed_features": 5,
+  "transformed_feature_names": [
+    "gender_M",
+    "gender_F",
+    "gender_U",
+    "age",
+    "first_issue_time"
+  ],
+  "train": {
+    "n": 600,
+    "treatment_rate": 0.49166666666666664,
+    "outcome_rate": 0.6066666666666667,
+    "n_control": 305,
+    "n_treated": 295,
+    "events_control": 189,
+    "events_treated": 175
+  },
+  "validation": {
+    "n": 200,
+    "treatment_rate": 0.49,
+    "outcome_rate": 0.605,
+    "n_control": 102,
+    "n_treated": 98,
+    "events_control": 63,
+    "events_treated": 58
+  },
+  "test": {
+    "n": 200,
+    "treatment_rate": 0.49,
+    "outcome_rate": 0.605,
+    "n_control": 102,
+    "n_treated": 98,
+    "events_control": 63,
+    "events_treated": 58
+  }
+}

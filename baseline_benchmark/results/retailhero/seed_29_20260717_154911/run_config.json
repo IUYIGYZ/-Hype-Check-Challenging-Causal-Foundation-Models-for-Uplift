@@ -1,0 +1,32 @@
+{
+  "dataset": "retailhero",
+  "outcome": null,
+  "models": "tarnet,dragonnet",
+  "cleaned_root": "/home/zys/eeg-related-master/eeg-related-2026.3.9/项目/data/data_A_cleaned",
+  "output_root": "/home/zys/eeg-related-master/eeg-related-2026.3.9/项目/baseline_benchmark/results",
+  "max_rows": 2000,
+  "seed": 29,
+  "val_fraction": 0.2,
+  "test_fraction": 0.2,
+  "tree_max_iter": 150,
+  "tree_max_leaf_nodes": 31,
+  "tree_learning_rate": 0.05,
+  "dr_folds": 5,
+  "epochs": 3,
+  "batch_size": 256,
+  "hidden_dim": 32,
+  "neural_learning_rate": 0.001,
+  "patience": 2,
+  "device": "auto",
+  "save_transformed_data": false,
+  "models_resolved": [
+    "tarnet",
+    "dragonnet"
+  ],
+  "outcome_resolved": "Y",
+  "max_rows_resolved": 2000,
+  "python": "3.10.0 | packaged by conda-forge | (default, Nov 20 2021, 02:24:10) [GCC 9.4.0]",
+  "platform": "Linux-6.8.0-134-generic-x86_64-with-glibc2.39",
+  "sklearn": "1.6.0",
+  "output_dir": "/home/zys/eeg-related-master/eeg-related-2026.3.9/项目/baseline_benchmark/results/retailhero/seed_29_20260717_154911"
+}

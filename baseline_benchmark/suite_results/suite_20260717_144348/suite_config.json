@@ -1,0 +1,21 @@
+{
+  "datasets": [
+    "retailhero"
+  ],
+  "seeds": [
+    0,
+    1
+  ],
+  "models": [
+    "constant_ate",
+    "s_learner",
+    "t_learner",
+    "x_learner",
+    "dr_learner"
+  ],
+  "max_rows": 2000,
+  "epochs": 100,
+  "tree_max_iter": 10,
+  "device": "auto",
+  "python": "/home/dykuang/anaconda3/bin/python"
+}

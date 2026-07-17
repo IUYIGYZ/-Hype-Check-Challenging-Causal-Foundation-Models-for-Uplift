@@ -1,0 +1,2 @@
+dataset,outcome,model,seed,n_train,n_validation,n_test,n_features,fit_seconds,predict_seconds,qini_auc_normalized,qini_coefficient,uplift_auc_normalized,auuc,uplift_at_10pct,uplift_at_20pct,ate_test,cate_mean,cate_std
+retailhero,Y,tarnet,31,600,200,200,5,0.5871525019756518,0.0004938259953632951,-0.020468539050871825,-0.0021958979802495235,-0.020743772163609862,-0.0187774923712093,-0.04395604395604402,-0.07070707070707061,-0.025810324129651896,0.02697142690420151,0.03472596125689045
