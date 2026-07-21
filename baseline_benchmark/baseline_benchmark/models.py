@@ -53,31 +53,43 @@ def _positive_probability(model, X: np.ndarray) -> np.ndarray:
     return probabilities[:, int(np.flatnonzero(classes == 1)[0])]
 
 
-class ConstantATE:
-    name = "constant_ate"
+def _feature_matrix(X, *, name: str) -> np.ndarray:
+    X = np.asarray(X)
+    if X.ndim != 2:
+        raise ValueError(f"{name} must be a 2D feature matrix")
+    if len(X) == 0:
+        raise ValueError(f"{name} must contain at least one sample")
+    if not np.issubdtype(X.dtype, np.number):
+        raise ValueError(f"{name} must contain numeric features")
+    if not np.isfinite(X).all():
+        raise ValueError(f"{name} contains NaN or Inf")
+    return X
 
-    def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
-        self.ate_ = float(np.mean(y[t == 1]) - np.mean(y[t == 0]))
-        return self
 
-    def predict_cate(self, X):
-        return np.full(len(X), self.ate_, dtype=float)
+def _binary_vector(values, *, name: str, n_samples: int, require_both: bool) -> np.ndarray:
+    try:
+        values = np.asarray(values, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be numeric and encoded as 0/1") from exc
+    if values.ndim != 1:
+        raise ValueError(f"{name} must be a 1D vector")
+    if len(values) != n_samples:
+        raise ValueError(f"X and {name} must have the same number of samples")
+    if not np.isfinite(values).all():
+        raise ValueError(f"{name} contains NaN or Inf")
+    unique = set(np.unique(values))
+    if not unique.issubset({0.0, 1.0}):
+        raise ValueError(f"{name} must be binary and encoded as 0/1")
+    if require_both and unique != {0.0, 1.0}:
+        raise ValueError(f"{name} must contain both 0 and 1")
+    return values.astype(np.int8, copy=False)
 
 
-class SLearner:
-    name = "s_learner"
-
-    def __init__(self, seed=42, max_iter=150, max_leaf_nodes=31, learning_rate=0.05):
-        self.model = _classifier(seed, max_iter, max_leaf_nodes, learning_rate)
-
-    def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
-        self.model = _fit_classifier(self.model, np.column_stack([X, t]), y)
-        return self
-
-    def predict_cate(self, X):
-        mu1 = _positive_probability(self.model, np.column_stack([X, np.ones(len(X))]))
-        mu0 = _positive_probability(self.model, np.column_stack([X, np.zeros(len(X))]))
-        return mu1 - mu0
+def _training_arrays(X, t, y) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    X = _feature_matrix(X, name="X")
+    t = _binary_vector(t, name="treatment", n_samples=len(X), require_both=True)
+    y = _binary_vector(y, name="outcome", n_samples=len(X), require_both=False)
+    return X, t, y
 
 
 class TLearner:
@@ -88,11 +100,13 @@ class TLearner:
         self.mu0, self.mu1 = clone(base), clone(base)
 
     def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
+        X, t, y = _training_arrays(X, t, y)
         self.mu0 = _fit_classifier(self.mu0, X[t == 0], y[t == 0])
         self.mu1 = _fit_classifier(self.mu1, X[t == 1], y[t == 1])
         return self
 
     def predict_cate(self, X):
+        X = _feature_matrix(X, name="X")
         return _positive_probability(self.mu1, X) - _positive_probability(self.mu0, X)
 
 
@@ -106,6 +120,7 @@ class XLearner:
         self.tau0, self.tau1 = clone(effect), clone(effect)
 
     def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
+        X, t, y = _training_arrays(X, t, y)
         x0, x1 = X[t == 0], X[t == 1]
         y0, y1 = y[t == 0], y[t == 1]
         self.mu0 = _fit_classifier(self.mu0, x0, y0)
@@ -118,6 +133,7 @@ class XLearner:
         return self
 
     def predict_cate(self, X):
+        X = _feature_matrix(X, name="X")
         # Original X-learner weighting: g(x) * tau_0 + (1-g(x)) * tau_1.
         return self.propensity_ * self.tau0.predict(X) + (1 - self.propensity_) * self.tau1.predict(X)
 
@@ -134,13 +150,22 @@ class DRLearner:
         n_folds=5,
         propensity_clip=0.02,
     ):
+        if isinstance(n_folds, (bool, np.bool_)) or not isinstance(n_folds, (int, np.integer)) or n_folds < 2:
+            raise ValueError("n_folds must be an integer greater than or equal to 2")
+        try:
+            propensity_clip = float(propensity_clip)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("propensity_clip must be a number in (0, 0.5)") from exc
+        if not np.isfinite(propensity_clip) or not 0.0 < propensity_clip < 0.5:
+            raise ValueError("propensity_clip must be a number in (0, 0.5)")
         self.seed = seed
-        self.n_folds = n_folds
+        self.n_folds = int(n_folds)
         self.propensity_clip = propensity_clip
         self.outcome_template = _classifier(seed, max_iter, max_leaf_nodes, learning_rate)
         self.effect_model = _regressor(seed + 1, max_iter, max_leaf_nodes, learning_rate)
 
     def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
+        X, t, y = _training_arrays(X, t, y)
         strata = np.char.add(t.astype(str), np.char.add("_", y.astype(str)))
         _, counts = np.unique(strata, return_counts=True)
         if int(counts.min()) < 2:
@@ -173,17 +198,16 @@ class DRLearner:
         return self
 
     def predict_cate(self, X):
+        X = _feature_matrix(X, name="X")
         return np.asarray(self.effect_model.predict(X), dtype=float)
 
 
 TRADITIONAL_MODELS = {
-    "constant_ate": ConstantATE,
-    "s_learner": SLearner,
     "t_learner": TLearner,
     "x_learner": XLearner,
     "dr_learner": DRLearner,
 }
-NEURAL_MODELS = {"tarnet", "dragonnet"}
+NEURAL_MODELS = {"dragonnet"}
 
 
 def available_models() -> list[str]:
@@ -194,16 +218,13 @@ def make_model(name: str, **kwargs):
     key = name.lower()
     if key in TRADITIONAL_MODELS:
         cls = TRADITIONAL_MODELS[key]
-        if cls is ConstantATE:
-            return cls()
         allowed = {"seed", "max_iter", "max_leaf_nodes", "learning_rate"}
         if cls is DRLearner:
             allowed |= {"n_folds", "propensity_clip"}
         return cls(**{k: v for k, v in kwargs.items() if k in allowed})
     if key in NEURAL_MODELS:
-        from .neural import DragonNetEstimator, TARNetEstimator
+        from .neural import DragonNetEstimator
 
-        cls = TARNetEstimator if key == "tarnet" else DragonNetEstimator
         allowed = {
             "seed",
             "epochs",
@@ -214,5 +235,5 @@ def make_model(name: str, **kwargs):
             "patience",
             "device",
         }
-        return cls(**{k: v for k, v in kwargs.items() if k in allowed})
+        return DragonNetEstimator(**{k: v for k, v in kwargs.items() if k in allowed})
     raise ValueError(f"Unknown model {name!r}; choose from {available_models()}")
