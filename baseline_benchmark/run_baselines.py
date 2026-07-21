@@ -19,13 +19,15 @@ from baseline_benchmark.metrics import evaluate_uplift
 from baseline_benchmark.models import available_models, make_model
 
 
-DEFAULT_MODELS = "constant_ate,s_learner,t_learner,x_learner,dr_learner,tarnet,dragonnet"
+DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet"
+EVALUATION_SPLITS = ("validation", "test")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run fair uplift baseline comparisons.")
     parser.add_argument("--dataset", choices=sorted(DATASET_SPECS), default="retailhero")
-    parser.add_argument("--outcome", default=None)
+    parser.add_argument("--outcome", default=None)   # 指定结果变量 Y。如果不指定，使用 data.py 中的数据集
+    # 默认设置：Criteo → conversion，Hillstrom → conversion，LZD → Y，RetailHero → Y
     parser.add_argument("--models", default=DEFAULT_MODELS, help="Comma-separated model names")
     parser.add_argument(
         "--cleaned-root",
@@ -36,6 +38,15 @@ def parse_args():
     parser.add_argument("--max-rows", type=int, default=50_000, help="0 means all rows")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--val-fraction", type=float, default=0.2)
+    parser.add_argument(
+        "--evaluation-split",
+        choices=EVALUATION_SPLITS,
+        default="validation",
+        help=(
+            "Evaluate on validation while tuning (default). Use test only after "
+            "hyperparameters have been frozen."
+        ),
+    )
     parser.add_argument("--test-fraction", type=float, default=0.2)
     parser.add_argument("--tree-max-iter", type=int, default=150)
     parser.add_argument("--tree-max-leaf-nodes", type=int, default=31)
@@ -48,7 +59,7 @@ def parse_args():
     parser.add_argument("--patience", type=int, default=12)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument(
-        "--save-transformed-data",
+        "--save-transformed-data",   # 默认不保存完整的处理后矩阵，因为大型数据可能占很多空间。
         action="store_true",
         help="Also save numeric train/validation/test matrices as Parquet files.",
     )
@@ -56,9 +67,11 @@ def parse_args():
 
 
 def _split_stats(t: np.ndarray, y: np.ndarray) -> dict[str, object]:
-    return {
+    # 数据质量统计，用来检查：处理组和控制组是否都存在；两组样本数量是否合理；正样本是否太少；不同 split 的分布是否相似。
+    # 它们最后保存到 data_manifest.json。
+    return {   
         "n": int(len(y)),
-        "treatment_rate": float(np.mean(t)),
+        "treatment_rate": float(np.mean(t)),    
         "outcome_rate": float(np.mean(y)),
         "n_control": int(np.sum(t == 0)),
         "n_treated": int(np.sum(t == 1)),
@@ -67,7 +80,7 @@ def _split_stats(t: np.ndarray, y: np.ndarray) -> dict[str, object]:
     }
 
 
-def _prepared_frame(X, ids, t, y, feature_names) -> pd.DataFrame:
+def _prepared_frame(X, ids, t, y, feature_names) -> pd.DataFrame:  # 把 NumPy 数组重新组合成表格，然后依次在最前面加入：epk_id、T、Y
     frame = pd.DataFrame(X, columns=feature_names)
     frame.insert(0, "Y", y)
     frame.insert(0, "T", t)
@@ -75,14 +88,24 @@ def _prepared_frame(X, ids, t, y, feature_names) -> pd.DataFrame:
     return frame
 
 
+def _evaluation_arrays(data, evaluation_split: str):   # 根据运行阶段选择评价数据
+    """Return exactly one held-out split for scoring and prediction export."""
+    if evaluation_split == "validation":
+        return data.X_val, data.id_val, data.t_val, data.y_val
+    if evaluation_split == "test":
+        return data.X_test, data.id_test, data.t_test, data.y_test
+    raise ValueError(f"Unknown evaluation split {evaluation_split!r}")
+
+
 def main():
-    args = parse_args()
-    requested = [m.strip().lower() for m in args.models.split(",") if m.strip()]
+    args = parse_args()  # 读取参数
+    requested = [m.strip().lower() for m in args.models.split(",") if m.strip()]  # 解析模型名称
     unknown = sorted(set(requested) - set(available_models()))
     if unknown:
         raise ValueError(f"Unknown models {unknown}; available={available_models()}")
-    max_rows = None if args.max_rows == 0 else args.max_rows
-    data = prepare_data(
+    max_rows = None if args.max_rows == 0 else args.max_rows   # data.py 使用：max_rows=None，表示读取全部数据。
+    # 所以命令行的：--max-rows 0，会转换成：max_rows = None。
+    data = prepare_data(  # 所有模型共享同一个：抽样结果（这次实验选哪些用户），train/validation/test，预处理器（原始特征按照什么规则转换），处理后特征矩阵（转换完成、真正输入模型的数字）
         cleaned_root=args.cleaned_root,
         dataset=args.dataset,
         outcome=args.outcome,
@@ -93,13 +116,18 @@ def main():
     )
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = args.output_root / args.dataset / f"seed_{args.seed}_{stamp}"
+    output_dir = (
+        args.output_root
+        / args.dataset
+        / f"{args.evaluation_split}_seed_{args.seed}_{stamp}"
+    )
     output_dir.mkdir(parents=True, exist_ok=False)
     data.split_table.to_parquet(output_dir / "splits.parquet", index=False)
     pd.DataFrame({"feature_name": data.feature_names}).to_csv(
         output_dir / "transformed_features.csv", index=False
     )
-    dump(data.preprocessor, output_dir / "preprocessor.joblib")
+    dump(data.preprocessor, output_dir / "preprocessor.joblib")   # 保存 data.py 在训练集上拟合好的：
+    # 数值中位数、数值均值和标准差、类别众数、One-Hot 类别列表，这样以后就可以加载相同预处理规则，而不是重新学习一套。
     data_manifest = {
         "dataset": data.dataset,
         "outcome": data.outcome,
@@ -130,6 +158,7 @@ def main():
 
     metrics_rows = []
     prediction_rows = []
+    X_eval, id_eval, t_eval, y_eval = _evaluation_arrays(data, args.evaluation_split)
     for model_name in requested:
         model = make_model(
             model_name,
@@ -138,7 +167,7 @@ def main():
             max_leaf_nodes=args.tree_max_leaf_nodes,
             learning_rate=(
                 args.neural_learning_rate
-                if model_name in {"tarnet", "dragonnet"}
+                if model_name == "dragonnet"
                 else args.tree_learning_rate
             ),
             n_folds=args.dr_folds,
@@ -159,34 +188,37 @@ def main():
         )
         fit_seconds = time.perf_counter() - fit_start
         predict_start = time.perf_counter()
-        cate = np.asarray(model.predict_cate(data.X_test), dtype=float)
+        cate = np.asarray(model.predict_cate(X_eval), dtype=float)
         predict_seconds = time.perf_counter() - predict_start
-        if cate.shape != data.y_test.shape or not np.isfinite(cate).all():
+        if cate.shape != y_eval.shape or not np.isfinite(cate).all():
             raise RuntimeError(f"{model_name} returned invalid CATE predictions")
         row = {
             "dataset": data.dataset,
             "outcome": data.outcome,
             "model": model_name,
             "seed": args.seed,
+            "evaluation_split": args.evaluation_split,
             "n_train": len(data.y_train),
             "n_validation": len(data.y_val),
             "n_test": len(data.y_test),
+            "n_evaluation": len(y_eval),
             "n_features": data.X_train.shape[1],
             "fit_seconds": fit_seconds,
             "predict_seconds": predict_seconds,
-            **evaluate_uplift(data.y_test, cate, data.t_test),
+            **evaluate_uplift(y_eval, cate, t_eval),
         }
         metrics_rows.append(row)
         prediction_rows.append(
             pd.DataFrame(
                 {
-                    "epk_id": data.id_test,
+                    "epk_id": id_eval,
                     "dataset": data.dataset,
                     "outcome": data.outcome,
                     "model": model_name,
                     "seed": args.seed,
-                    "T": data.t_test,
-                    "Y": data.y_test,
+                    "evaluation_split": args.evaluation_split,
+                    "T": t_eval,
+                    "Y": y_eval,
                     "cate_pred": cate,
                 }
             )

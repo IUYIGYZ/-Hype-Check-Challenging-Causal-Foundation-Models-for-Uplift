@@ -8,14 +8,6 @@
 
 ## 2. 为什么选择这些方法
 
-### Constant ATE
-
-为所有用户输出相同的训练集平均处理效应。它没有个体排序能力，是检查 Qini 实现是否正常的 sanity check，而不是主要竞争模型。正常情况下其 Qini coefficient 应接近 0。
-
-### S-Learner
-
-使用单个 outcome model 学习 `E[Y | X,T]`，然后分别令 `T=1` 和 `T=0` 得到 CATE。它简单、训练成本低，也是项目大纲提到的重要基线。
-
 ### T-Learner
 
 分别在处理组和控制组拟合 `mu1(X)`、`mu0(X)`，预测差值作为 CATE。它是最直接的双模型基线。
@@ -28,13 +20,9 @@
 
 使用 cross-fitted outcome nuisance predictions 构造 doubly robust pseudo-outcome，再拟合最终 CATE model。实现默认使用随机试验的经验 treatment rate 作为常数 propensity，并进行裁剪。它对应项目参考文献中讨论的 doubly robust score。
 
-### TARNet
-
-PyTorch 神经基线。使用共享 representation 和两个 potential-outcome heads，只在每个样本实际观察到的 treatment head 上计算二元交叉熵。
-
 ### DragonNet
 
-在 TARNet 结构上增加 propensity head，同时学习 Outcome 和 Treatment。当前实现是基本 DragonNet architecture，**没有加入原论文的 targeted regularization**；结果表中应明确这一点。如果需要与论文数字严格复现，应换用作者代码或 CATENets。
+使用共享 representation、两个 potential-outcome heads 和一个 propensity head，同时学习 Outcome 和 Treatment。当前实现是基本 DragonNet architecture，**没有加入原论文的 targeted regularization**；结果表中应明确这一点。如果需要与论文数字严格复现，应换用作者代码或 CATENets。
 
 ## 3. 文献依据
 
@@ -47,12 +35,10 @@ PyTorch 神经基线。使用共享 representation 和两个 potential-outcome h
 
 外部原始/官方资料：
 
-- Meta-learners 原论文（S/T/X）：https://doi.org/10.1073/pnas.1804597116
+- Meta-learners 原论文（T/X）：https://doi.org/10.1073/pnas.1804597116
 - DR-Learner 原论文：https://arxiv.org/abs/2004.14497
-- TARNet/CFR 原论文：https://proceedings.mlr.press/v70/shalit17a.html
 - DragonNet 原论文：https://papers.nips.cc/paper/8520-adapting-neural-networks-for-the-estimation-oftreatment-effects
 - CausalPFN 官方仓库：https://github.com/vdblm/CausalPFN
-- EconML 官方文档：https://econml.azurewebsites.net/
 - CATENets 官方仓库：https://github.com/AliciaCurth/CATENets
 - scikit-uplift Qini 定义：https://www.uplift-modeling.com/en/stable/api/metrics/qini_auc_score.html
 
@@ -65,7 +51,7 @@ PyTorch 神经基线。使用共享 representation 和两个 potential-outcome h
 3. 生成一次 train/validation/test split；
 4. 只在训练集拟合 imputer、scaler 和 categorical encoder；
 5. 为所有模型提供完全相同的转换后矩阵；
-6. 所有模型在同一个测试集上输出 `cate_pred`；
+6. 调参时所有模型在同一 validation 上输出 `cate_pred`，参数冻结后再使用同一 test；
 7. 所有预测调用同一套 Qini/AUUC 代码。
 
 Criteo 和 LZD 使用完整特征向量 hash 作为 group，使重复特征向量不能跨越 train/validation/test。Hillstrom 和 RetailHero 按 `T × Y` 分层划分。
@@ -88,8 +74,8 @@ baseline_benchmark/
 ├── baseline_benchmark/
 │   ├── data.py       # cleaned 数据读取、统一划分、统一预处理
 │   ├── metrics.py    # Qini、AUUC、uplift@k
-│   ├── models.py     # Constant/S/T/X/DR
-│   └── neural.py     # TARNet/DragonNet
+│   ├── models.py     # T/X/DR
+│   └── neural.py     # DragonNet
 ├── tests/
 │   └── test_smoke.py
 ├── run_baselines.py  # 单数据集、单 seed
@@ -111,6 +97,12 @@ conda run -n Torch25 python -c "import torch; print(torch.__version__)"
 cd 项目/baseline_benchmark
 ```
 
+`run_baselines.py` 和 `run_suite.py` 默认使用 `--evaluation-split validation`，用于调参和决定何时停止调参。参数冻结后，正式结果必须显式添加：
+
+```text
+--evaluation-split test
+```
+
 ## 7. 快速验证
 
 只运行传统模型：
@@ -118,7 +110,7 @@ cd 项目/baseline_benchmark
 ```bash
 python run_baselines.py \
   --dataset retailhero \
-  --models constant_ate,s_learner,t_learner,x_learner,dr_learner \
+  --models t_learner,x_learner,dr_learner \
   --max-rows 5000 \
   --tree-max-iter 20 \
   --seed 17
@@ -129,7 +121,7 @@ python run_baselines.py \
 ```bash
 conda run -n Torch25 python run_baselines.py \
   --dataset retailhero \
-  --models tarnet,dragonnet \
+  --models dragonnet \
   --max-rows 5000 \
   --epochs 20 \
   --seed 17
@@ -140,7 +132,7 @@ conda run -n Torch25 python run_baselines.py \
 ```bash
 conda run -n Torch25 python run_baselines.py \
   --dataset retailhero \
-  --models constant_ate,s_learner,t_learner,x_learner,dr_learner,tarnet,dragonnet \
+  --models t_learner,x_learner,dr_learner,dragonnet \
   --max-rows 50000 \
   --epochs 100 \
   --seed 0
@@ -148,7 +140,13 @@ conda run -n Torch25 python run_baselines.py \
 
 `--max-rows 0` 表示使用全部 cleaned 数据。
 
-## 8. 正式多随机种子实验
+## 8. 多随机种子验证与最终实验
+
+### 调参停止建议
+
+调参阶段只读取 validation 结果。使用 `qini_auc_normalized` 作为主指标，`uplift_at_10pct` 作为业务辅助指标。先用一个 seed 快速筛选，再让最好的 2～3 组设置使用至少 3 个 seeds 复核。
+
+如果新设置的平均 validation Qini 提升小于 0.005，或提升小于 seed 波动带来的标准误，同时 Uplift@10% 没有明显改善，就可以停止调参。效果相近时选择更简单、运行更快的设置。参数冻结后才运行 test。
 
 先用 2 个 seed 验证流程：
 
@@ -161,12 +159,13 @@ conda run -n Torch25 python run_suite.py \
   --tree-max-iter 50
 ```
 
-确认没有问题后再运行 10 个 seed：
+使用 validation 比较参数；参数冻结后再对 test 运行 10 个 seed：
 
 ```bash
 conda run -n Torch25 python run_suite.py \
   --datasets retailhero,lzd,hillstrom \
   --seeds 0,1,2,3,4,5,6,7,8,9 \
+  --evaluation-split test \
   --max-rows 50000 \
   --epochs 100 \
   --tree-max-iter 150
@@ -179,7 +178,7 @@ conda run -n Torch25 python run_suite.py \
 单次运行生成：
 
 ```text
-results/<dataset>/seed_<seed>_<timestamp>/
+results/<dataset>/<evaluation_split>_seed_<seed>_<timestamp>/
 ├── metrics.csv
 ├── predictions.parquet
 ├── splits.parquet
@@ -190,7 +189,7 @@ results/<dataset>/seed_<seed>_<timestamp>/
 其中 `predictions.parquet` 包含：
 
 ```text
-epk_id, dataset, outcome, model, seed, T, Y, cate_pred
+epk_id, dataset, outcome, model, seed, evaluation_split, T, Y, cate_pred
 ```
 
 多 seed suite 额外生成：
@@ -212,7 +211,7 @@ suite_config.json
 - `auuc`：top-fraction uplift curve 的面积；
 - `uplift_at_10pct`；
 - `uplift_at_20pct`；
-- 测试集原始 `ATE`；
+- 当前 evaluation split 的观测均值差 `ate_observed`；
 - CATE 预测均值和标准差；
 - 训练与推理时间。
 
@@ -221,35 +220,27 @@ suite_config.json
 ## 11. 当前实现的边界
 
 1. 这是可运行、可审计的第一版 baseline，不宣称逐行复现 EconML/CATENets 的全部默认值。
-2. S/T/X/DR 使用 scikit-learn HistGradientBoosting 作为统一底层学习器，便于公平控制模型容量。
-3. DR-Learner 使用 cross-fitting；S/T/X 当前没有额外 cross-fitting，因为它们最终在独立测试集评估。
+2. T/X/DR 使用 scikit-learn HistGradientBoosting 作为统一底层学习器，便于公平控制模型容量。
+3. DR-Learner 使用 cross-fitting；T/X 当前没有额外 cross-fitting，因为它们最终在独立测试集评估。
 4. DragonNet 未实现 targeted regularization，必须在报告中写成 `DragonNet (basic, no targeted regularization)`。
-5. 当前没有 Causal Forest，因为环境未安装 EconML。正式论文级实验建议后续安装 EconML，并增加 `CausalForestDML` 或 GRF。
-6. 当前 CI 是跨随机种子的正态近似区间；项目大纲要求的 test-set bootstrap CI 仍应在最终实验阶段补充。
-7. Orange Telecom 没有纳入可选数据集，因为其 treatment 来源和 cleaned metadata 仍存在因果有效性问题。
-8. 当前 Hillstrom cleaned 数据把 Men's 与 Women's 两种邮件合并为 `T=1`。这可以解释为“任意营销邮件 vs 不发邮件”，但不等于 CausalPFN 论文中的 `Hill(1)` 和 `Hill(2)` 两个独立任务；若要严格复现，应从原始 `segment` 字段分别构造两个二元 cohort。
+5. 当前 CI 是跨随机种子的正态近似区间；项目大纲要求的 test-set bootstrap CI 仍应在最终实验阶段补充。
+6. Orange Telecom 没有纳入可选数据集，因为其 treatment 来源和 cleaned metadata 仍存在因果有效性问题。
+7. 当前 Hillstrom cleaned 数据把 Men's 与 Women's 两种邮件合并为 `T=1`。这可以解释为“任意营销邮件 vs 不发邮件”，但不等于 CausalPFN 论文中的 `Hill(1)` 和 `Hill(2)` 两个独立任务；若要严格复现，应从原始 `segment` 字段分别构造两个二元 cohort。
 
-## 12. 推荐的正式模型集合
+## 12. 正式 baseline 模型集合
 
-如果计算预算有限，主表至少保留：
+本项目的 baseline 主表固定保留：
 
 ```text
-Constant ATE
-S-Learner
 T-Learner
 X-Learner
 DR-Learner
-TARNet
 DragonNet (basic)
-CausalPFN（下一步接入）
 ```
 
-若时间与环境允许，再增加：
+## 13. 自动调参
 
-```text
-Causal Forest / GRF
-CATENets 官方 TARNet/DragonNet
-Q-Learner（低转化专项）
-GP-CATE（small-control 专项）
-```
+四个模型的完整自动调参、断点续跑和最终 test 命令见 [AUTO_TUNING_GUIDE.md](AUTO_TUNING_GUIDE.md)。
 
+
+多数据集并行、GPU 分配和耐 SSH 断线运行见 [PARALLEL_TUNING_GUIDE.md](PARALLEL_TUNING_GUIDE.md)。
