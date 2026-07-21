@@ -330,3 +330,31 @@ def prepare_data(
         preprocessor=preprocessor,
         group_safe=group_safe,
     )
+
+
+def upsample_training_data(
+    X: np.ndarray,
+    t: np.ndarray,
+    y: np.ndarray,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Balance treatment-arm sizes by resampling training rows with replacement.
+
+    Apply this only after the train/validation/test split. The returned source
+    indices make the duplicated training rows auditable.
+    """
+    X = np.asarray(X)
+    t = np.asarray(t)
+    y = np.asarray(y)
+    if len(X) != len(t) or len(X) != len(y):
+        raise ValueError("X, t, and y must have the same length")
+    arms = {arm: np.flatnonzero(t == arm) for arm in (0, 1)}
+    if not all(len(rows) for rows in arms.values()):
+        raise ValueError("Both treatment arms are required for train upsampling")
+    target = max(len(rows) for rows in arms.values())
+    rng = np.random.default_rng(seed)
+    sampled = np.concatenate(
+        [rng.choice(rows, size=target, replace=True) for rows in arms.values()]
+    )
+    rng.shuffle(sampled)
+    return X[sampled], t[sampled], y[sampled], sampled

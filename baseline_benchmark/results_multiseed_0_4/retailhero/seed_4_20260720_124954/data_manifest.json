@@ -1,0 +1,43 @@
+{
+  "dataset": "retailhero",
+  "outcome": "Y",
+  "cleaned_root": "C:\\Users\\User\\Downloads\\Данные uplift\\Данные uplift\\data_A_cleaned\\data_A_cleaned",
+  "group_safe_split": false,
+  "seed": 4,
+  "max_rows": 5000,
+  "n_transformed_features": 5,
+  "transformed_feature_names": [
+    "gender_M",
+    "gender_F",
+    "gender_U",
+    "age",
+    "first_issue_time"
+  ],
+  "train": {
+    "n": 3000,
+    "treatment_rate": 0.4886666666666667,
+    "outcome_rate": 0.623,
+    "n_control": 1534,
+    "n_treated": 1466,
+    "events_control": 937,
+    "events_treated": 932
+  },
+  "validation": {
+    "n": 1000,
+    "treatment_rate": 0.488,
+    "outcome_rate": 0.622,
+    "n_control": 512,
+    "n_treated": 488,
+    "events_control": 312,
+    "events_treated": 310
+  },
+  "test": {
+    "n": 1000,
+    "treatment_rate": 0.489,
+    "outcome_rate": 0.623,
+    "n_control": 511,
+    "n_treated": 489,
+    "events_control": 312,
+    "events_treated": 311
+  }
+}

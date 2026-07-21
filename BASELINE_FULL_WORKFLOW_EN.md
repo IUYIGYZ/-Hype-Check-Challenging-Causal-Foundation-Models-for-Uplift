@@ -6,7 +6,7 @@ This document describes the completed baseline work: cleaned-data organization, 
 
 Implementation: `项目/baseline_benchmark/`.
 
-CausalPFN is not connected yet. A later CausalPFN adapter only needs to predict `cate_pred` for the same test IDs and use the same evaluation functions.
+CausalPFN is connected as an optional foundation-model baseline. It predicts `cate_pred` for the same test IDs and uses the same evaluation functions as every other model.
 
 Given pre-treatment features `X`, binary treatment `T`, and binary outcome `Y`, the estimand is:
 
@@ -224,6 +224,17 @@ conda run -n Torch25 python run_baselines.py \
 
 Add `--save-transformed-data` to export final numeric train/validation/test Parquet files for later CausalPFN reuse.
 
+To run the integrated CausalPFN baseline, install its optional dependency and select
+it through the same runner:
+
+```bash
+pip install -r baseline_benchmark/requirements-causalpfn.txt
+python baseline_benchmark/run_baselines.py --dataset retailhero --models causalpfn --max-rows 5000 --device auto
+```
+
+`causalpfn` can be listed together with the existing model names. Its predictions
+are written to the same `predictions.parquet` and evaluated in the same `metrics.csv`.
+
 Ten-seed suite:
 
 ```bash
@@ -299,7 +310,7 @@ Two pytest warnings originate from the environment's numexpr/distutils deprecati
 
 ## 10. Current Limitations and Next Steps
 
-- CausalPFN is not connected yet; reuse the same split/numeric data and metrics next.
+- CausalPFN is connected through `CausalPFNEstimator` in `baseline_benchmark/models.py`; the dependency is optional because pretrained weights may be downloaded on first use.
 - Causal Forest is absent because EconML is not installed; add CausalForestDML or GRF for the final main table.
 - DragonNet does not include targeted regularization.
 - Formal validation-set hyperparameter search is not implemented.

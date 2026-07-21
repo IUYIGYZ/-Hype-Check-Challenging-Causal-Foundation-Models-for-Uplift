@@ -1,0 +1,2 @@
+dataset,outcome,model,seed,n_train,n_validation,n_test,n_features,fit_seconds,predict_seconds,qini_auc_normalized,qini_coefficient,uplift_auc_normalized,auuc,uplift_at_10pct,uplift_at_20pct,ate_test,cate_mean,cate_std
+criteo,conversion,causalpfn,17,2999,1000,1001,10,13.365792900000088,10.997634200000903,-110.0,0.0008782426364843947,0.013466587500262401,0.003352874587741696,0.023809523809523808,0.017341040462427744,0.00468384074941452,0.004324215881574851,0.0251624735508833

@@ -1,0 +1,2 @@
+dataset,outcome,model,seed,n_train,n_validation,n_test,n_features,fit_seconds,predict_seconds,qini_auc_normalized,qini_coefficient,uplift_auc_normalized,auuc,uplift_at_10pct,uplift_at_20pct,ate_test,cate_mean,cate_std
+retailhero,Y,causalpfn,17,3000,1000,1000,5,13.412737199999356,40.21299589999944,0.015384292471350218,0.0015785608495635405,0.010051285426283417,0.015939660932148113,0.11755233494363931,0.03881552621048423,0.026302630263026372,0.026388704895973204,0.004397843145030437

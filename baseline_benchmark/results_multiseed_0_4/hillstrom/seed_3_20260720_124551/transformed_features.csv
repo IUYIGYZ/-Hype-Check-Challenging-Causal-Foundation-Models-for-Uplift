@@ -1,0 +1,19 @@
+feature_name
+recency
+history
+mens
+womens
+newbie
+history_segment_1) $0 - $100
+history_segment_2) $100 - $200
+history_segment_3) $200 - $350
+history_segment_4) $350 - $500
+history_segment_5) $500 - $750
+"history_segment_6) $750 - $1,000"
+"history_segment_7) $1,000 +"
+zip_code_Rural
+zip_code_Surburban
+zip_code_Urban
+channel_Multichannel
+channel_Phone
+channel_Web

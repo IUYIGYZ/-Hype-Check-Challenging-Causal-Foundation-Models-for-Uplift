@@ -1,0 +1,2 @@
+dataset,outcome,model,seed,n_train,n_validation,n_test,n_features,fit_seconds,predict_seconds,qini_auc_normalized,qini_coefficient,uplift_auc_normalized,auuc,uplift_at_10pct,uplift_at_20pct,ate_test,cate_mean,cate_std
+hillstrom,conversion,causalpfn,17,3000,1000,1000,18,12.879790699998921,23.133730200001082,-0.05964603634248598,-0.00011932333295703097,-0.0010860479526860198,0.0005470117862050283,0.0,-0.015625,0.0014609335545775915,0.0003918318119831383,0.0011592418854141889

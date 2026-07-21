@@ -1,0 +1,48 @@
+{
+  "dataset": "criteo",
+  "outcome": "conversion",
+  "cleaned_root": "C:\\Users\\User\\Downloads\\Данные uplift\\Данные uplift\\data_A_cleaned\\data_A_cleaned",
+  "group_safe_split": true,
+  "seed": 4,
+  "max_rows": 5000,
+  "n_transformed_features": 10,
+  "transformed_feature_names": [
+    "f0",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f8",
+    "f9",
+    "f11"
+  ],
+  "train": {
+    "n": 3002,
+    "treatment_rate": 0.8550966022651566,
+    "outcome_rate": 0.003997335109926716,
+    "n_control": 435,
+    "n_treated": 2567,
+    "events_control": 4,
+    "events_treated": 8
+  },
+  "validation": {
+    "n": 998,
+    "treatment_rate": 0.8386773547094188,
+    "outcome_rate": 0.003006012024048096,
+    "n_control": 161,
+    "n_treated": 837,
+    "events_control": 1,
+    "events_treated": 2
+  },
+  "test": {
+    "n": 1000,
+    "treatment_rate": 0.848,
+    "outcome_rate": 0.005,
+    "n_control": 152,
+    "n_treated": 848,
+    "events_control": 0,
+    "events_treated": 5
+  }
+}

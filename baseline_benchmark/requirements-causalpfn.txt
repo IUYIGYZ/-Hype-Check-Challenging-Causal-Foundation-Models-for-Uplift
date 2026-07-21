@@ -1,0 +1,3 @@
+# Optional foundation-model baseline. Keep separate because CausalPFN downloads
+# pretrained weights and requires Python 3.10+ / PyTorch 2.3+.
+causalpfn

@@ -176,6 +176,52 @@ class DRLearner:
         return np.asarray(self.effect_model.predict(X), dtype=float)
 
 
+class CausalPFNEstimator:
+    """Adapter for the pretrained CausalPFN CATE estimator.
+
+    CausalPFN is a prior-fitted foundation model: ``fit`` only provides the
+    current task as context and does not train a task-specific neural net.
+    The optional dependency is imported lazily so the traditional baselines
+    remain runnable without the larger CausalPFN installation.
+    """
+
+    name = "causalpfn"
+
+    def __init__(self, device="auto", verbose=True):
+        self.device_name = device
+        self.verbose = verbose
+
+    def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
+        try:
+            import torch
+            from causalpfn import CATEEstimator
+        except ImportError as exc:
+            raise ImportError(
+                "The 'causalpfn' model requires the optional dependency. "
+                "Install it with: pip install -r requirements-causalpfn.txt"
+            ) from exc
+
+        if self.device_name == "auto":
+            device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        else:
+            device = torch.device("cuda:0" if self.device_name == "cuda" else self.device_name)
+        self.estimator_ = CATEEstimator(device=device, verbose=self.verbose)
+        self.estimator_.fit(
+            np.asarray(X, dtype=np.float32),
+            np.asarray(t, dtype=np.float32),
+            np.asarray(y, dtype=np.float32),
+        )
+        self.device_ = str(device)
+        return self
+
+    def predict_cate(self, X):
+        if not hasattr(self, "estimator_"):
+            raise RuntimeError("CausalPFN must be fitted before prediction")
+        return np.asarray(
+            self.estimator_.estimate_cate(np.asarray(X, dtype=np.float32)), dtype=float
+        ).reshape(-1)
+
+
 TRADITIONAL_MODELS = {
     "constant_ate": ConstantATE,
     "s_learner": SLearner,
@@ -184,10 +230,11 @@ TRADITIONAL_MODELS = {
     "dr_learner": DRLearner,
 }
 NEURAL_MODELS = {"tarnet", "dragonnet"}
+FOUNDATION_MODELS = {"causalpfn"}
 
 
 def available_models() -> list[str]:
-    return [*TRADITIONAL_MODELS, *sorted(NEURAL_MODELS)]
+    return [*TRADITIONAL_MODELS, *sorted(NEURAL_MODELS), *sorted(FOUNDATION_MODELS)]
 
 
 def make_model(name: str, **kwargs):
@@ -215,4 +262,9 @@ def make_model(name: str, **kwargs):
             "device",
         }
         return cls(**{k: v for k, v in kwargs.items() if k in allowed})
+    if key in FOUNDATION_MODELS:
+        return CausalPFNEstimator(
+            device=kwargs.get("device", "auto"),
+            verbose=kwargs.get("causalpfn_verbose", True),
+        )
     raise ValueError(f"Unknown model {name!r}; choose from {available_models()}")

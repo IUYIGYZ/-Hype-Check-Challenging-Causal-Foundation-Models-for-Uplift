@@ -14,7 +14,7 @@ import pandas as pd
 import sklearn
 from joblib import dump
 
-from baseline_benchmark.data import DATASET_SPECS, prepare_data
+from baseline_benchmark.data import DATASET_SPECS, prepare_data, upsample_training_data
 from baseline_benchmark.metrics import evaluate_uplift
 from baseline_benchmark.models import available_models, make_model
 
@@ -47,6 +47,11 @@ def parse_args():
     parser.add_argument("--neural-learning-rate", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=12)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
+    parser.add_argument(
+        "--upsample-train",
+        action="store_true",
+        help="Balance treatment-arm sizes in training only by sampling with replacement.",
+    )
     parser.add_argument(
         "--save-transformed-data",
         action="store_true",
@@ -91,6 +96,13 @@ def main():
         val_fraction=args.val_fraction,
         test_fraction=args.test_fraction,
     )
+    X_train_fit, t_train_fit, y_train_fit = data.X_train, data.t_train, data.y_train
+    train_source_rows = np.arange(len(data.y_train))
+    if args.upsample_train:
+        X_train_fit, t_train_fit, y_train_fit, train_source_rows = upsample_training_data(
+            data.X_train, data.t_train, data.y_train, seed=args.seed
+        )
+    id_train_fit = data.id_train[train_source_rows]
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_root / args.dataset / f"seed_{args.seed}_{stamp}"
@@ -110,6 +122,8 @@ def main():
         "n_transformed_features": len(data.feature_names),
         "transformed_feature_names": data.feature_names,
         "train": _split_stats(data.t_train, data.y_train),
+        "train_fit": _split_stats(t_train_fit, y_train_fit),
+        "upsample_train": bool(args.upsample_train),
         "validation": _split_stats(data.t_val, data.y_val),
         "test": _split_stats(data.t_test, data.y_test),
     }
@@ -120,7 +134,7 @@ def main():
         prepared_dir = output_dir / "prepared_data"
         prepared_dir.mkdir()
         for split_name, X, ids, t, y in (
-            ("train", data.X_train, data.id_train, data.t_train, data.y_train),
+            ("train", X_train_fit, id_train_fit, t_train_fit, y_train_fit),
             ("validation", data.X_val, data.id_val, data.t_val, data.y_val),
             ("test", data.X_test, data.id_test, data.t_test, data.y_test),
         ):
@@ -147,12 +161,13 @@ def main():
             hidden_dim=args.hidden_dim,
             patience=args.patience,
             device=args.device,
+            causalpfn_verbose=True,
         )
         fit_start = time.perf_counter()
         model.fit(
-            data.X_train,
-            data.t_train,
-            data.y_train,
+            X_train_fit,
+            t_train_fit,
+            y_train_fit,
             data.X_val,
             data.t_val,
             data.y_val,
@@ -169,6 +184,8 @@ def main():
             "model": model_name,
             "seed": args.seed,
             "n_train": len(data.y_train),
+            "n_train_fit": len(y_train_fit),
+            "upsample_train": bool(args.upsample_train),
             "n_validation": len(data.y_val),
             "n_test": len(data.y_test),
             "n_features": data.X_train.shape[1],

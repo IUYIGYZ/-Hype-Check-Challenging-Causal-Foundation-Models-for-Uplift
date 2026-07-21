@@ -4,7 +4,7 @@
 
 本目录提供一套可以直接运行的 baseline comparison，用于在相同的 cleaned 数据、相同样本划分、相同特征矩阵和相同指标下比较不同 CATE/Uplift 模型。
 
-当前实现不包含 CausalPFN 本身；它先建立 baseline 端。后续接入 CausalPFN 时，只需要让它对同一测试集输出 `cate_pred`，再调用相同的 `evaluate_uplift` 即可。
+当前实现已经接入 CausalPFN 作为可选的预训练因果基础模型。它使用同一套训练/验证/测试特征矩阵，并将 CATE 预测直接送入现有的 `evaluate_uplift`，因此可以和已有 baseline 使用完全相同的指标比较。
 
 ## 2. 为什么选择这些方法
 
@@ -78,6 +78,33 @@ T（从 X 中移除，但作为单独 treatment 输入）
 treatment_dt
 split
 ```
+
+CausalPFN（可选依赖）：
+
+```bash
+pip install -r requirements-causalpfn.txt
+python run_baselines.py \
+  --dataset retailhero \
+  --models causalpfn \
+  --max-rows 5000 \
+  --device auto \
+  --seed 17
+```
+
+也可以和已有模型组合，例如：
+`--models s_learner,t_learner,tarnet,dragonnet,causalpfn`。
+输出仍然是同样的 `metrics.csv` 和 `predictions.parquet`，因此 Qini、AUUC、
+uplift@10%/20%、耗时以及多 seed suite 都可以直接比较。
+
+可选的训练集 treatment upsampling：
+
+```bash
+python run_baselines.py --dataset lzd --models constant_ate,s_learner,t_learner,x_learner,dr_learner,tarnet,dragonnet,causalpfn --upsample-train
+```
+
+`--upsample-train` 在完成数据划分后，仅对训练集较小的 treatment group
+进行有放回采样，使两组训练样本数相等。验证集和测试集不会被复制；manifest
+会同时记录原始 `n_train` 和实际训练用的 `n_train_fit`。
 
 Outcome 文件里的 `epk_id`、`lag` 和其他 Outcomes 不会进入 `X`。
 
@@ -205,6 +232,9 @@ suite_config.json
 
 ## 10. 指标
 
+曲线和归一化指标的计算已对齐 scikit-uplift 的公开实现
+（`sklift.metrics.metrics.py`），因此可以直接与该库的 Qini/uplift 指标比较。
+
 当前统一报告：
 
 - `qini_auc_normalized`：按照 scikit-uplift 定义归一化的 Qini AUC；
@@ -241,7 +271,9 @@ X-Learner
 DR-Learner
 TARNet
 DragonNet (basic)
-CausalPFN（下一步接入）
+CausalPFN（已接入）
+
+实现通过官方 `causalpfn.CATEEstimator` API 调用预训练 Transformer：`fit` 将训练集作为上下文提供给模型，`predict_cate` 在测试样本上调用 `estimate_cate`。这不是在当前数据集上重新训练一个任务模型。该依赖单独安装，因为首次运行可能会下载预训练权重：`pip install -r requirements-causalpfn.txt`。
 ```
 
 若时间与环境允许，再增加：

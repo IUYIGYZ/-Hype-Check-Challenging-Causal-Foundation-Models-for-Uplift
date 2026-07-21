@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from baseline_benchmark.data import _make_preprocessor, _split_indices
+from baseline_benchmark.data import _make_preprocessor, _split_indices, upsample_training_data
 from baseline_benchmark.metrics import evaluate_uplift
 from baseline_benchmark.models import make_model
 
@@ -83,3 +83,16 @@ def test_categorical_encoder_is_fit_on_train_only_and_handles_unknown_values():
     assert X_test.shape[1] == X_train.shape[1]
     assert np.isfinite(X_train).all()
     assert np.isfinite(X_test).all()
+
+
+def test_train_upsampling_balances_arms_without_changing_feature_width():
+    rng = np.random.default_rng(13)
+    X = rng.normal(size=(12, 3)).astype(np.float32)
+    t = np.array([0] * 4 + [1] * 8, dtype=np.int8)
+    y = rng.binomial(1, 0.3, size=len(t)).astype(np.int8)
+    X_fit, t_fit, y_fit, source = upsample_training_data(X, t, y, seed=5)
+    assert X_fit.shape == (16, 3)
+    assert y_fit.shape == t_fit.shape == (16,)
+    assert np.sum(t_fit == 0) == np.sum(t_fit == 1) == 8
+    assert np.isfinite(X_fit).all()
+    assert np.isin(source, np.arange(len(X))).all()
