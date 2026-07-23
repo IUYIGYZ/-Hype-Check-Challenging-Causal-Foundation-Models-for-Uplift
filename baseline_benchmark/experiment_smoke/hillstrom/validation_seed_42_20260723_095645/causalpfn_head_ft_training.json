@@ -1,0 +1,23 @@
+{
+  "model": "causalpfn_head_ft",
+  "pseudo_label_diagnostics": {
+    "n_folds": 2,
+    "propensity": 0.663,
+    "raw_y0_min": -0.10818696966247371,
+    "raw_y0_max": 2.9552490007246757,
+    "raw_y1_min": -0.025947651084357364,
+    "raw_y1_max": 1.5043206666146829
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 4.765015602111816,
+      "validation_loss": 4.704869747161865
+    }
+  ],
+  "best_inner_validation_loss": 4.704869747161865,
+  "epochs_run": 1,
+  "head_parameter_delta_norm": 0.0759073794393977,
+  "trainable_parameters": 1089024,
+  "frozen_parameters": 17752960
+}

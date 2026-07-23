@@ -1,0 +1,2 @@
+dataset,outcome,model,seed,evaluation_split,n_train,n_validation,n_test,n_evaluation,n_features,fit_seconds,predict_seconds,qini_auc_normalized,qini_coefficient,uplift_auc_normalized,auuc,uplift_at_10pct,uplift_at_20pct,ate_observed,cate_mean,cate_std
+retailhero,Y,x_learner,42,validation,12000,4000,4000,4000,5,14.38812489999691,0.24442239999916637,-0.00843473825183378,-0.0008813369431694373,-0.006969671072764553,0.009758312727084023,-0.037438250708392906,0.04230373327307879,0.023378802602305848,0.01948011045393663,0.0956494872890136

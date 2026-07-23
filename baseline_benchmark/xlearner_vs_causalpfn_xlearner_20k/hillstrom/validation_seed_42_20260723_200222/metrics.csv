@@ -1,0 +1,2 @@
+dataset,outcome,model,seed,evaluation_split,n_train,n_validation,n_test,n_evaluation,n_features,fit_seconds,predict_seconds,qini_auc_normalized,qini_coefficient,uplift_auc_normalized,auuc,uplift_at_10pct,uplift_at_20pct,ate_observed,cate_mean,cate_std
+hillstrom,conversion,x_learner,42,validation,12000,4000,4000,4000,18,41.94118880000315,0.4258798000009847,-0.013166238230848653,-2.626740982585511e-05,-0.000132357654829039,0.0021966204535883607,0.0011024172514855742,0.009658349754378175,0.004438021684710937,0.0041757527819150635,0.018816172951800273

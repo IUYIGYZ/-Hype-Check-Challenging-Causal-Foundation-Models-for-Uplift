@@ -207,7 +207,13 @@ TRADITIONAL_MODELS = {
     "x_learner": XLearner,
     "dr_learner": DRLearner,
 }
-FOUNDATION_MODELS = {"causalpfn"}
+FOUNDATION_MODELS = {
+    "causalpfn",
+    "causalpfn_head_ft",
+    "causalpfn_hgb_correction",
+    "causalpfn_ridge_correction",
+    "causalpfn_x_learner",
+}
 NEURAL_MODELS = {"dragonnet"}
 
 
@@ -238,8 +244,6 @@ def make_model(name: str, **kwargs):
         }
         return DragonNetEstimator(**{k: v for k, v in kwargs.items() if k in allowed})
     if key in FOUNDATION_MODELS:
-        from .causalpfn import CausalPFNEstimator
-
         allowed = {
             "seed",
             "device",
@@ -251,5 +255,62 @@ def make_model(name: str, **kwargs):
             "calibrate",
             "verbose",
         }
-        return CausalPFNEstimator(**{k: v for k, v in kwargs.items() if k in allowed})
+        if key == "causalpfn":
+            from .causalpfn import CausalPFNEstimator
+
+            cls = CausalPFNEstimator
+        elif key == "causalpfn_head_ft":
+            from .causalpfn_finetune import CausalPFNHeadFinetunedEstimator
+
+            cls = CausalPFNHeadFinetunedEstimator
+            allowed |= {
+                "finetune_epochs",
+                "finetune_learning_rate",
+                "finetune_weight_decay",
+                "finetune_context_length",
+                "finetune_query_length",
+                "finetune_tasks_per_epoch",
+                "finetune_validation_tasks",
+                "finetune_validation_fraction",
+                "finetune_patience",
+                "finetune_gradient_clip",
+                "pseudo_folds",
+                "pseudo_max_iter",
+                "pseudo_max_leaf_nodes",
+                "pseudo_learning_rate",
+                "pseudo_propensity_clip",
+            }
+        elif key == "causalpfn_x_learner":
+            from .causalpfn_xlearner import CausalPFNXLearner
+
+            cls = CausalPFNXLearner
+            allowed |= {"x_folds"}
+        else:
+            from .causalpfn_correction import (
+                CausalPFNHGBCorrectionEstimator,
+                CausalPFNRidgeCorrectionEstimator,
+            )
+
+            cls = (
+                CausalPFNRidgeCorrectionEstimator
+                if key == "causalpfn_ridge_correction"
+                else CausalPFNHGBCorrectionEstimator
+            )
+            allowed |= {
+                "correction_strength",
+                "correction_folds",
+                "correction_center",
+                "correction_winsor_quantile",
+                "correction_ridge_alpha",
+                "correction_max_iter",
+                "correction_learning_rate",
+                "correction_max_leaf_nodes",
+                "correction_min_samples_leaf",
+                "correction_l2_regularization",
+                "pseudo_max_iter",
+                "pseudo_max_leaf_nodes",
+                "pseudo_learning_rate",
+                "pseudo_propensity_clip",
+            }
+        return cls(**{k: v for k, v in kwargs.items() if k in allowed})
     raise ValueError(f"Unknown model {name!r}; choose from {available_models()}")

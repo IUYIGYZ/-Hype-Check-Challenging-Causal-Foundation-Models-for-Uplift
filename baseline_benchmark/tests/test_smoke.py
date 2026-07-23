@@ -26,6 +26,10 @@ def test_available_model_set_includes_causalpfn():
         "dr_learner",
         "dragonnet",
         "causalpfn",
+        "causalpfn_head_ft",
+        "causalpfn_hgb_correction",
+        "causalpfn_ridge_correction",
+        "causalpfn_x_learner",
     ]
 
 

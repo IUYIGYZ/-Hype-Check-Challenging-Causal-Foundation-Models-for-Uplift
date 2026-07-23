@@ -19,11 +19,19 @@ class _FakeCATEEstimator:
         assert t.dtype == np.float32
         assert y.dtype == np.float32
         self.fitted = True
+        self.X_train = X
+        self.t_train = t
+        self.y_train = y
+        self.prediction_temperature = 1.0
         return self
 
     def estimate_cate(self, *, X):
         assert self.fitted
         return X[:, 0] * 0.1
+
+    def _predict_cepo(self, *, X_query, t_query, **kwargs):
+        assert self.fitted
+        return 0.2 + 0.01 * X_query[:, 0] + 0.1 * t_query
 
 
 class _FakeCuda:
@@ -67,9 +75,11 @@ def test_causalpfn_adapter_uses_official_api_and_clips_neighbours(monkeypatch):
     )
     model.fit(X, treatment, outcome)
     cate = model.predict_cate(X[:3])
+    mu0, mu1 = model.predict_potential_outcomes(X[:3])
 
     assert cate.shape == (3,)
     assert np.isfinite(cate).all()
+    assert np.allclose(mu1 - mu0, 0.1)
     assert _FakeCATEEstimator.last_kwargs["device"] == "cpu"
     assert _FakeCATEEstimator.last_kwargs["num_neighbours"] == 4
     assert _FakeCATEEstimator.last_kwargs["max_context_length"] == 64
@@ -91,3 +101,16 @@ def test_causalpfn_adapter_rejects_wrong_feature_count(monkeypatch):
     )
     with pytest.raises(ValueError, match="features"):
         model.predict_cate(np.ones((2, 2)))
+
+
+def test_causalpfn_adapter_accepts_continuous_outcome(monkeypatch):
+    _install_fake_dependency(monkeypatch)
+    model = make_model("causalpfn", device="cpu")
+    model.fit_continuous_outcome(
+        np.ones((8, 3)),
+        np.array([0, 1, 0, 1, 0, 1, 0, 1]),
+        np.linspace(-0.7, 0.8, 8),
+    )
+    mu0, mu1 = model.predict_potential_outcomes(np.ones((2, 3)))
+    assert np.isfinite(mu0).all()
+    assert np.isfinite(mu1).all()

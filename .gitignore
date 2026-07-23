@@ -16,3 +16,6 @@ __pycache__/
 build/
 dist/
 
+# Runtime logs and background-process markers
+*.log
+*.pid

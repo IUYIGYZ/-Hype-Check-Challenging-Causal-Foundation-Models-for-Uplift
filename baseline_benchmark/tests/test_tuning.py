@@ -18,8 +18,20 @@ def test_trial_zero_matches_current_defaults():
     assert _sample_params(
         "causalpfn", 0, search_seed=1, neural_max_epochs=99
     ) == {}
-    with pytest.raises(ValueError, match="pretrained"):
+    with pytest.raises(ValueError, match="fixed trial"):
         _sample_params("causalpfn", 1, search_seed=1, neural_max_epochs=99)
+    assert _sample_params(
+        "causalpfn_head_ft", 0, search_seed=1, neural_max_epochs=99
+    ) == {}
+    assert _sample_params(
+        "causalpfn_ridge_correction", 0, search_seed=1, neural_max_epochs=99
+    ) == {}
+    assert _sample_params(
+        "causalpfn_hgb_correction", 0, search_seed=1, neural_max_epochs=99
+    ) == {}
+    assert _sample_params(
+        "causalpfn_x_learner", 0, search_seed=1, neural_max_epochs=99
+    ) == {}
     assert _sample_params(
         "dr_learner", 0, search_seed=1, neural_max_epochs=99
     ) == {

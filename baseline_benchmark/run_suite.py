@@ -50,6 +50,42 @@ def parse_args():
     parser.add_argument("--causalpfn-num-neighbours", type=int, default=1024)
     parser.add_argument("--causalpfn-calibrate", action="store_true")
     parser.add_argument("--causalpfn-verbose", action="store_true")
+    parser.add_argument("--causalpfn-ft-epochs", type=int, default=10)
+    parser.add_argument("--causalpfn-ft-learning-rate", type=float, default=1e-4)
+    parser.add_argument("--causalpfn-ft-weight-decay", type=float, default=1e-4)
+    parser.add_argument("--causalpfn-ft-context-length", type=int, default=1024)
+    parser.add_argument("--causalpfn-ft-query-length", type=int, default=256)
+    parser.add_argument("--causalpfn-ft-tasks-per-epoch", type=int, default=8)
+    parser.add_argument("--causalpfn-ft-validation-tasks", type=int, default=4)
+    parser.add_argument("--causalpfn-ft-validation-fraction", type=float, default=0.2)
+    parser.add_argument("--causalpfn-ft-patience", type=int, default=3)
+    parser.add_argument("--causalpfn-ft-gradient-clip", type=float, default=1.0)
+    parser.add_argument("--causalpfn-pseudo-folds", type=int, default=5)
+    parser.add_argument("--causalpfn-pseudo-max-iter", type=int, default=100)
+    parser.add_argument("--causalpfn-pseudo-max-leaf-nodes", type=int, default=31)
+    parser.add_argument("--causalpfn-pseudo-learning-rate", type=float, default=0.05)
+    parser.add_argument("--causalpfn-pseudo-propensity-clip", type=float, default=0.02)
+    parser.add_argument("--causalpfn-correction-strength", type=float, default=0.5)
+    parser.add_argument("--causalpfn-correction-folds", type=int, default=3)
+    parser.add_argument("--causalpfn-correction-center", action="store_true")
+    parser.add_argument(
+        "--causalpfn-correction-winsor-quantile", type=float, default=0.01
+    )
+    parser.add_argument("--causalpfn-correction-ridge-alpha", type=float, default=10.0)
+    parser.add_argument("--causalpfn-correction-max-iter", type=int, default=50)
+    parser.add_argument(
+        "--causalpfn-correction-learning-rate", type=float, default=0.03
+    )
+    parser.add_argument(
+        "--causalpfn-correction-max-leaf-nodes", type=int, default=15
+    )
+    parser.add_argument(
+        "--causalpfn-correction-min-samples-leaf", type=int, default=200
+    )
+    parser.add_argument(
+        "--causalpfn-correction-l2-regularization", type=float, default=1.0
+    )
+    parser.add_argument("--causalpfn-x-folds", type=int, default=3)
     parser.add_argument(
         "--evaluation-split",
         choices=["validation", "test"],
@@ -118,6 +154,56 @@ def main():
                     str(args.causalpfn_max_query_length),
                     "--causalpfn-num-neighbours",
                     str(args.causalpfn_num_neighbours),
+                    "--causalpfn-ft-epochs",
+                    str(args.causalpfn_ft_epochs),
+                    "--causalpfn-ft-learning-rate",
+                    str(args.causalpfn_ft_learning_rate),
+                    "--causalpfn-ft-weight-decay",
+                    str(args.causalpfn_ft_weight_decay),
+                    "--causalpfn-ft-context-length",
+                    str(args.causalpfn_ft_context_length),
+                    "--causalpfn-ft-query-length",
+                    str(args.causalpfn_ft_query_length),
+                    "--causalpfn-ft-tasks-per-epoch",
+                    str(args.causalpfn_ft_tasks_per_epoch),
+                    "--causalpfn-ft-validation-tasks",
+                    str(args.causalpfn_ft_validation_tasks),
+                    "--causalpfn-ft-validation-fraction",
+                    str(args.causalpfn_ft_validation_fraction),
+                    "--causalpfn-ft-patience",
+                    str(args.causalpfn_ft_patience),
+                    "--causalpfn-ft-gradient-clip",
+                    str(args.causalpfn_ft_gradient_clip),
+                    "--causalpfn-pseudo-folds",
+                    str(args.causalpfn_pseudo_folds),
+                    "--causalpfn-pseudo-max-iter",
+                    str(args.causalpfn_pseudo_max_iter),
+                    "--causalpfn-pseudo-max-leaf-nodes",
+                    str(args.causalpfn_pseudo_max_leaf_nodes),
+                    "--causalpfn-pseudo-learning-rate",
+                    str(args.causalpfn_pseudo_learning_rate),
+                    "--causalpfn-pseudo-propensity-clip",
+                    str(args.causalpfn_pseudo_propensity_clip),
+                    "--causalpfn-correction-strength",
+                    str(args.causalpfn_correction_strength),
+                    "--causalpfn-correction-folds",
+                    str(args.causalpfn_correction_folds),
+                    "--causalpfn-correction-winsor-quantile",
+                    str(args.causalpfn_correction_winsor_quantile),
+                    "--causalpfn-correction-ridge-alpha",
+                    str(args.causalpfn_correction_ridge_alpha),
+                    "--causalpfn-correction-max-iter",
+                    str(args.causalpfn_correction_max_iter),
+                    "--causalpfn-correction-learning-rate",
+                    str(args.causalpfn_correction_learning_rate),
+                    "--causalpfn-correction-max-leaf-nodes",
+                    str(args.causalpfn_correction_max_leaf_nodes),
+                    "--causalpfn-correction-min-samples-leaf",
+                    str(args.causalpfn_correction_min_samples_leaf),
+                    "--causalpfn-correction-l2-regularization",
+                    str(args.causalpfn_correction_l2_regularization),
+                    "--causalpfn-x-folds",
+                    str(args.causalpfn_x_folds),
                 ]
             )
             if args.causalpfn_cache_dir is not None:
@@ -126,6 +212,8 @@ def main():
                 command.append("--causalpfn-calibrate")
             if args.causalpfn_verbose:
                 command.append("--causalpfn-verbose")
+            if args.causalpfn_correction_center:
+                command.append("--causalpfn-correction-center")
             print("RUN", " ".join(command), flush=True)
             subprocess.run(command, check=True)
 
@@ -182,6 +270,48 @@ def main():
                 "causalpfn_max_query_length": args.causalpfn_max_query_length,
                 "causalpfn_num_neighbours": args.causalpfn_num_neighbours,
                 "causalpfn_calibrate": args.causalpfn_calibrate,
+                "causalpfn_head_finetune": {
+                    "epochs": args.causalpfn_ft_epochs,
+                    "learning_rate": args.causalpfn_ft_learning_rate,
+                    "weight_decay": args.causalpfn_ft_weight_decay,
+                    "context_length": args.causalpfn_ft_context_length,
+                    "query_length": args.causalpfn_ft_query_length,
+                    "tasks_per_epoch": args.causalpfn_ft_tasks_per_epoch,
+                    "validation_tasks": args.causalpfn_ft_validation_tasks,
+                    "validation_fraction": args.causalpfn_ft_validation_fraction,
+                    "patience": args.causalpfn_ft_patience,
+                    "gradient_clip": args.causalpfn_ft_gradient_clip,
+                    "pseudo_folds": args.causalpfn_pseudo_folds,
+                    "pseudo_max_iter": args.causalpfn_pseudo_max_iter,
+                    "pseudo_max_leaf_nodes": args.causalpfn_pseudo_max_leaf_nodes,
+                    "pseudo_learning_rate": args.causalpfn_pseudo_learning_rate,
+                    "pseudo_propensity_clip": args.causalpfn_pseudo_propensity_clip,
+                },
+                "causalpfn_correction": {
+                    "strength": args.causalpfn_correction_strength,
+                    "folds": args.causalpfn_correction_folds,
+                    "center": args.causalpfn_correction_center,
+                    "winsor_quantile": (
+                        args.causalpfn_correction_winsor_quantile
+                    ),
+                    "ridge_alpha": args.causalpfn_correction_ridge_alpha,
+                    "max_iter": args.causalpfn_correction_max_iter,
+                    "learning_rate": (
+                        args.causalpfn_correction_learning_rate
+                    ),
+                    "max_leaf_nodes": (
+                        args.causalpfn_correction_max_leaf_nodes
+                    ),
+                    "min_samples_leaf": (
+                        args.causalpfn_correction_min_samples_leaf
+                    ),
+                    "l2_regularization": (
+                        args.causalpfn_correction_l2_regularization
+                    ),
+                },
+                "causalpfn_x_learner": {
+                    "folds": args.causalpfn_x_folds,
+                },
                 "evaluation_split": args.evaluation_split,
                 "python": sys.executable,
             },

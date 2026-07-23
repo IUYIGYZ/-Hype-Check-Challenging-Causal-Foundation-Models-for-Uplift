@@ -15,6 +15,16 @@ IDs as every baseline, so all existing Qini/AUUC calculations remain unchanged.
 - `dr_learner`: cross-fitted doubly robust pseudo-outcome followed by an effect regression.
 - `dragonnet`: a shared representation, two potential-outcome heads, and a propensity head.
 - `causalpfn`: the official pretrained CATE estimator, used without task-specific tuning.
+- `causalpfn_head_ft`: an experimental domain-adapted CausalPFN that freezes the
+  backbone and fine-tunes only the prediction head against train-only,
+  cross-fitted doubly robust potential-outcome pseudo-labels.
+- `causalpfn_ridge_correction`: zero-shot CausalPFN plus a regularized linear
+  correction trained on cross-fitted DR residuals.
+- `causalpfn_hgb_correction`: zero-shot CausalPFN plus a low-capacity histogram
+  gradient-boosting correction trained on the same residual target.
+- `causalpfn_x_learner`: cross-fitted CausalPFN potential-outcome imputation
+  followed by a continuous-outcome CausalPFN that supplies both X-Learner
+  effect functions.
 
 The first CausalPFN run downloads the official `vdblm/causalpfn` checkpoint from
 Hugging Face unless `--causalpfn-model-path` points to a local checkpoint. Its
@@ -125,6 +135,88 @@ conda run -n Torch25 python run_baselines.py \
 ```
 
 Set `--max-rows 0` to use all cleaned rows.
+
+## Experimental CausalPFN Head-Only Fine-Tuning
+
+`causalpfn_head_ft` is deliberately separate from the zero-shot `causalpfn`
+baseline. It performs the following operations using the outer training split
+only:
+
+1. cross-fit treatment-arm outcome models and construct AIPW/DR signals for
+   both potential outcomes;
+2. cross-fit a second regression stage to smooth those signals into bounded
+   `E[Y(0)|X]` and `E[Y(1)|X]` pseudo-labels;
+3. create an inner train/validation split;
+4. freeze the official CausalPFN backbone and optimize only
+   `icl_model.model.head`;
+5. use fixed inner validation tasks for early stopping.
+
+The outer validation or test outcomes are never used to create pseudo-labels or
+update the model. Therefore validation remains suitable for selecting the
+fine-tuning configuration, and test must remain sealed until that configuration
+is frozen.
+
+Example validation experiment:
+
+```bash
+python run_baselines.py \
+  --cleaned-root "path/to/data_A_cleaned" \
+  --dataset hillstrom \
+  --models causalpfn,causalpfn_head_ft \
+  --evaluation-split validation \
+  --seed 42 \
+  --causalpfn-ft-epochs 10 \
+  --causalpfn-ft-learning-rate 1e-4 \
+  --causalpfn-ft-context-length 1024 \
+  --causalpfn-ft-query-length 256 \
+  --causalpfn-ft-tasks-per-epoch 8 \
+  --causalpfn-pseudo-folds 5
+```
+
+In addition to the normal benchmark artifacts, the fine-tuned run writes
+`causalpfn_head_ft_training.json`. It records DR cross-fitting diagnostics,
+per-epoch training/inner-validation loss, early-stopping state, and the numbers
+of trainable and frozen parameters. Report this model as domain-adapted
+CausalPFN, not as zero-shot CausalPFN.
+
+## Experimental CausalPFN Residual Correction
+
+The correction experiments leave the official CausalPFN checkpoint unchanged.
+For every outer-training row they construct:
+
+1. an OOF CausalPFN CATE prediction from a context that excludes that row's
+   fold;
+2. OOF treatment-arm outcome predictions and an AIPW/DR effect;
+3. a winsorized residual target `DR effect - OOF CausalPFN CATE`;
+4. correction features `[X, CATE_PFN, mu0, mu1]`.
+
+The Ridge or HGB model learns that residual. Final predictions use:
+
+```text
+CATE_final = CATE_PFN + correction_strength * predicted_residual
+```
+
+Example:
+
+```bash
+python run_baselines.py \
+  --cleaned-root "path/to/data_A_cleaned" \
+  --dataset lzd \
+  --models causalpfn,causalpfn_ridge_correction,causalpfn_hgb_correction \
+  --evaluation-split validation \
+  --causalpfn-correction-folds 3 \
+  --causalpfn-correction-strength 0.5 \
+  --causalpfn-correction-ridge-alpha 10 \
+  --causalpfn-correction-max-iter 50 \
+  --causalpfn-correction-max-leaf-nodes 15
+```
+
+The OOF CausalPFN pass is intentionally strict and therefore expensive: with
+three folds it fits three fold-specific contexts and one final full-training
+context per correction model. Each run writes
+`<model_name>_training.json` with residual, OOF, and evaluation-correction
+diagnostics. Select correction hyperparameters on validation only and keep test
+sealed.
 
 ## Multi-Seed Validation and Final Evaluation
 

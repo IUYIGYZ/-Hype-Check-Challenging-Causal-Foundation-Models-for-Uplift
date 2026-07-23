@@ -250,7 +250,14 @@ def _fill_data_fields(row: dict[str, object], data) -> None:
 
 
 def _cleanup_model(model_name: str, model=None) -> None:
-    if model_name in {"dragonnet", "causalpfn"}:
+    if model_name in {
+        "dragonnet",
+        "causalpfn",
+        "causalpfn_head_ft",
+        "causalpfn_hgb_correction",
+        "causalpfn_ridge_correction",
+        "causalpfn_x_learner",
+    }:
         try:
             import torch
 
@@ -258,6 +265,11 @@ def _cleanup_model(model_name: str, model=None) -> None:
                 model.model_.to("cpu")
             if model is not None and hasattr(model, "estimator_"):
                 icl_model = getattr(model.estimator_, "icl_model", None)
+                if icl_model is not None:
+                    icl_model.to("cpu")
+            effect_model = getattr(model, "effect_model_", None)
+            if effect_model is not None and hasattr(effect_model, "estimator_"):
+                icl_model = getattr(effect_model.estimator_, "icl_model", None)
                 if icl_model is not None:
                     icl_model.to("cpu")
             if torch.cuda.is_available():
@@ -271,7 +283,14 @@ def _cleanup_model(model_name: str, model=None) -> None:
 def _evaluate_model(model_name: str, params: dict[str, object], data, seed: int, device: str):
     kwargs = dict(params)
     kwargs["seed"] = seed
-    if model_name in {"dragonnet", "causalpfn"}:
+    if model_name in {
+        "dragonnet",
+        "causalpfn",
+        "causalpfn_head_ft",
+        "causalpfn_hgb_correction",
+        "causalpfn_ridge_correction",
+        "causalpfn_x_learner",
+    }:
         kwargs["device"] = device
     model = make_model(model_name, **kwargs)
     fit_start = time.perf_counter()

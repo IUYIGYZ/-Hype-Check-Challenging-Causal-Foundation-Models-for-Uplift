@@ -1,0 +1,56 @@
+{
+  "dataset": "hillstrom",
+  "outcome": "conversion",
+  "cleaned_root": "C:\\Users\\User\\Downloads\\Данные uplift\\Данные uplift\\data_A_cleaned\\data_A_cleaned",
+  "group_safe_split": false,
+  "seed": 42,
+  "max_rows": 20000,
+  "n_transformed_features": 18,
+  "transformed_feature_names": [
+    "recency",
+    "history",
+    "mens",
+    "womens",
+    "newbie",
+    "history_segment_1) $0 - $100",
+    "history_segment_2) $100 - $200",
+    "history_segment_3) $200 - $350",
+    "history_segment_4) $350 - $500",
+    "history_segment_5) $500 - $750",
+    "history_segment_6) $750 - $1,000",
+    "history_segment_7) $1,000 +",
+    "zip_code_Rural",
+    "zip_code_Surburban",
+    "zip_code_Urban",
+    "channel_Multichannel",
+    "channel_Phone",
+    "channel_Web"
+  ],
+  "train": {
+    "n": 12000,
+    "treatment_rate": 0.6685833333333333,
+    "outcome_rate": 0.008916666666666666,
+    "n_control": 3977,
+    "n_treated": 8023,
+    "events_control": 23,
+    "events_treated": 84
+  },
+  "validation": {
+    "n": 4000,
+    "treatment_rate": 0.6685,
+    "outcome_rate": 0.009,
+    "n_control": 1326,
+    "n_treated": 2674,
+    "events_control": 8,
+    "events_treated": 28
+  },
+  "test": {
+    "n": 4000,
+    "treatment_rate": 0.6685,
+    "outcome_rate": 0.009,
+    "n_control": 1326,
+    "n_treated": 2674,
+    "events_control": 8,
+    "events_treated": 28
+  }
+}

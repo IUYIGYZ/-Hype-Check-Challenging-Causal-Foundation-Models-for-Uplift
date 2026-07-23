@@ -22,12 +22,23 @@ from baseline_benchmark.models import available_models, make_model
 
 DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet,causalpfn"
 TRADITIONAL_MODELS = {"t_learner", "x_learner", "dr_learner"}
+FIXED_CAUSALPFN_MODELS = {
+    "causalpfn",
+    "causalpfn_head_ft",
+    "causalpfn_hgb_correction",
+    "causalpfn_ridge_correction",
+    "causalpfn_x_learner",
+}
 MODEL_OFFSETS = {
     "t_learner": 10_000,
     "x_learner": 20_000,
     "dr_learner": 30_000,
     "dragonnet": 40_000,
     "causalpfn": 50_000,
+    "causalpfn_head_ft": 60_000,
+    "causalpfn_ridge_correction": 70_000,
+    "causalpfn_hgb_correction": 80_000,
+    "causalpfn_x_learner": 90_000,
 }
 OBJECTIVES = (
     "qini_auc_normalized",
@@ -75,6 +86,30 @@ SEARCH_SPACE = {
     },
     "causalpfn": {
         "parameters": "fixed pretrained estimator; no task-specific tuning",
+    },
+    "causalpfn_head_ft": {
+        "parameters": (
+            "fixed head-only adaptation defaults with cross-fitted DR labels; "
+            "dedicated fine-tuning search is intentionally separate"
+        ),
+    },
+    "causalpfn_ridge_correction": {
+        "parameters": (
+            "fixed cross-fitted DR residual Ridge correction defaults; "
+            "dedicated correction search is intentionally separate"
+        ),
+    },
+    "causalpfn_hgb_correction": {
+        "parameters": (
+            "fixed cross-fitted DR residual HGB correction defaults; "
+            "dedicated correction search is intentionally separate"
+        ),
+    },
+    "causalpfn_x_learner": {
+        "parameters": (
+            "fixed cross-fitted CausalPFN outcome imputation followed by a "
+            "continuous-outcome CausalPFN effect model"
+        ),
     },
 }
 
@@ -164,7 +199,7 @@ def _positive_count(value: int | None, *, name: str) -> int | None:
 
 
 def _target_trials(model_name: str, args) -> int:
-    if model_name == "causalpfn":
+    if model_name in FIXED_CAUSALPFN_MODELS:
         return 1
     if model_name == "dragonnet" and args.dragonnet_trials is not None:
         return args.dragonnet_trials
@@ -190,7 +225,7 @@ def _sample_params(
         raise ValueError(f"Unsupported model {model_name!r}")
 
     if trial == 0:
-        if model_name == "causalpfn":
+        if model_name in FIXED_CAUSALPFN_MODELS:
             return {}
         if model_name in {"t_learner", "x_learner"}:
             return {"max_iter": 150, "max_leaf_nodes": 31, "learning_rate": 0.05}
@@ -210,8 +245,10 @@ def _sample_params(
             "patience": 12,
         }
 
-    if model_name == "causalpfn":
-        raise ValueError("CausalPFN is pretrained and has exactly one fixed trial")
+    if model_name in FIXED_CAUSALPFN_MODELS:
+        raise ValueError(
+            "CausalPFN experiments have exactly one fixed trial in this tuner"
+        )
 
     rng = np.random.default_rng(search_seed + MODEL_OFFSETS[model_name] + trial * 1009)
     if model_name in TRADITIONAL_MODELS:
@@ -308,7 +345,7 @@ def _select_best(
 
 
 def _cleanup_model(model_name: str, model=None) -> None:
-    if model_name in {"dragonnet", "causalpfn"}:
+    if model_name in {"dragonnet", *FIXED_CAUSALPFN_MODELS}:
         try:
             import torch
 
@@ -316,6 +353,11 @@ def _cleanup_model(model_name: str, model=None) -> None:
                 model.model_.to("cpu")
             if model is not None and hasattr(model, "estimator_"):
                 icl_model = getattr(model.estimator_, "icl_model", None)
+                if icl_model is not None:
+                    icl_model.to("cpu")
+            effect_model = getattr(model, "effect_model_", None)
+            if effect_model is not None and hasattr(effect_model, "estimator_"):
+                icl_model = getattr(effect_model.estimator_, "icl_model", None)
                 if icl_model is not None:
                     icl_model.to("cpu")
             if torch.cuda.is_available():
@@ -337,7 +379,7 @@ def _fit_and_evaluate(
 ):
     kwargs = dict(params)
     kwargs["seed"] = model_seed
-    if model_name in {"dragonnet", "causalpfn"}:
+    if model_name in {"dragonnet", *FIXED_CAUSALPFN_MODELS}:
         kwargs["device"] = device
     model = make_model(model_name, **kwargs)
 

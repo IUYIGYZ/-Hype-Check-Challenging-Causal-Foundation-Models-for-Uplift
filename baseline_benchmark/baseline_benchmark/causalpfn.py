@@ -4,7 +4,7 @@ import random
 
 import numpy as np
 
-from .models import _feature_matrix, _training_arrays
+from .models import _binary_vector, _feature_matrix, _training_arrays
 
 
 class CausalPFNEstimator:
@@ -59,8 +59,7 @@ class CausalPFNEstimator:
             raise RuntimeError("CUDA was requested for CausalPFN but is not available")
         return self.device_name
 
-    def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
-        X, t, y = _training_arrays(X, t, y)
+    def _fit_arrays(self, X, t, y):
         X = np.ascontiguousarray(X, dtype=np.float32)
         t = np.ascontiguousarray(t, dtype=np.float32)
         y = np.ascontiguousarray(y, dtype=np.float32)
@@ -110,6 +109,34 @@ class CausalPFNEstimator:
         self.num_neighbours_ = resolved_neighbours
         return self
 
+    def fit(self, X, t, y, X_val=None, t_val=None, y_val=None):
+        X, t, y = _training_arrays(X, t, y)
+        return self._fit_arrays(X, t, y)
+
+    def fit_continuous_outcome(self, X, t, y):
+        """Fit the official model with a finite continuous outcome.
+
+        The public benchmark task has a binary response, while X-Learner's
+        D0/D1 second-stage targets are continuous. The official CausalPFN model
+        supports this case by standardizing outcomes internally.
+        """
+        X = _feature_matrix(X, name="X")
+        t = _binary_vector(
+            t,
+            name="treatment",
+            n_samples=len(X),
+            require_both=True,
+        )
+        try:
+            y = np.asarray(y, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("outcome must be a numeric vector") from exc
+        if y.ndim != 1 or len(y) != len(X):
+            raise ValueError("X and outcome must have the same number of samples")
+        if not np.isfinite(y).all():
+            raise ValueError("outcome contains NaN or Inf")
+        return self._fit_arrays(X, t, y)
+
     def predict_cate(self, X):
         if not hasattr(self, "estimator_"):
             raise RuntimeError("causalpfn must be fitted before predict_cate")
@@ -124,3 +151,47 @@ class CausalPFNEstimator:
         if cate.shape != (len(X),) or not np.isfinite(cate).all():
             raise RuntimeError("causalpfn returned invalid CATE predictions")
         return cate
+
+    def predict_potential_outcomes(self, X) -> tuple[np.ndarray, np.ndarray]:
+        """Return CausalPFN estimates of E[Y(0)|X] and E[Y(1)|X].
+
+        The upstream package currently exposes only their difference publicly.
+        This adapter uses the same internal CEPO call as ``estimate_cate`` so
+        X-learner-style imputation can retain both potential outcomes.
+        """
+        if not hasattr(self, "estimator_"):
+            raise RuntimeError(
+                "causalpfn must be fitted before predict_potential_outcomes"
+            )
+        X = _feature_matrix(X, name="X")
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but causalpfn was fitted with "
+                f"{self.n_features_in_} features"
+            )
+        X = np.ascontiguousarray(X, dtype=np.float32)
+        estimator = self.estimator_
+        X_query = X
+        max_feature_size = getattr(estimator, "max_feature_size", None)
+        if max_feature_size is not None and X_query.shape[1] > max_feature_size:
+            X_query = estimator.x_dim_transformer.transform(X_query)
+        n_samples = len(X_query)
+        mu = np.asarray(
+            estimator._predict_cepo(
+                X_context=estimator.X_train,
+                t_context=estimator.t_train,
+                y_context=estimator.y_train,
+                X_query=np.concatenate([X_query, X_query], axis=0),
+                t_query=np.concatenate(
+                    [
+                        np.zeros(n_samples, dtype=np.float32),
+                        np.ones(n_samples, dtype=np.float32),
+                    ]
+                ),
+                temperature=estimator.prediction_temperature,
+            ),
+            dtype=float,
+        ).reshape(-1)
+        if mu.shape != (2 * n_samples,) or not np.isfinite(mu).all():
+            raise RuntimeError("causalpfn returned invalid potential outcomes")
+        return mu[:n_samples], mu[n_samples:]

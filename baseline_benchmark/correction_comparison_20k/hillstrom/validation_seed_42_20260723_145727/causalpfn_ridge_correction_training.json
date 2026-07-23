@@ -1,0 +1,29 @@
+{
+  "model": "causalpfn_ridge_correction",
+  "diagnostics": {
+    "correction_kind": "ridge",
+    "n_folds": 3,
+    "propensity": 0.6685833333333333,
+    "n_correction_features": 21,
+    "dr_effect_min": -3.017028484760028,
+    "dr_effect_max": 1.7603048062063018,
+    "residual_raw_min": -3.0585312438873364,
+    "residual_raw_max": 1.785210186067895,
+    "residual_fit_min": -0.11074842318260485,
+    "residual_fit_max": 0.18932090871482848,
+    "residual_fit_std": 0.030909458911110597,
+    "oof_causalpfn_std": 0.017686126895837328,
+    "oof_dr_correlation": 0.002304355340571955,
+    "predicted_correction_mean": -0.0038231712707007923,
+    "predicted_correction_std": 0.016351723878374292,
+    "correction_strength": 0.5,
+    "correction_centered": false
+  },
+  "evaluation_correction": {
+    "mean": -0.0036343660833954346,
+    "std": 0.018346296699911557,
+    "min": -0.10527108609676361,
+    "max": 0.05107121914625168,
+    "base_final_correlation": 0.9970972843794064
+  }
+}

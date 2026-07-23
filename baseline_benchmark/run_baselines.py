@@ -65,6 +65,42 @@ def parse_args():
     parser.add_argument("--causalpfn-num-neighbours", type=int, default=1024)
     parser.add_argument("--causalpfn-calibrate", action="store_true")
     parser.add_argument("--causalpfn-verbose", action="store_true")
+    parser.add_argument("--causalpfn-ft-epochs", type=int, default=10)
+    parser.add_argument("--causalpfn-ft-learning-rate", type=float, default=1e-4)
+    parser.add_argument("--causalpfn-ft-weight-decay", type=float, default=1e-4)
+    parser.add_argument("--causalpfn-ft-context-length", type=int, default=1024)
+    parser.add_argument("--causalpfn-ft-query-length", type=int, default=256)
+    parser.add_argument("--causalpfn-ft-tasks-per-epoch", type=int, default=8)
+    parser.add_argument("--causalpfn-ft-validation-tasks", type=int, default=4)
+    parser.add_argument("--causalpfn-ft-validation-fraction", type=float, default=0.2)
+    parser.add_argument("--causalpfn-ft-patience", type=int, default=3)
+    parser.add_argument("--causalpfn-ft-gradient-clip", type=float, default=1.0)
+    parser.add_argument("--causalpfn-pseudo-folds", type=int, default=5)
+    parser.add_argument("--causalpfn-pseudo-max-iter", type=int, default=100)
+    parser.add_argument("--causalpfn-pseudo-max-leaf-nodes", type=int, default=31)
+    parser.add_argument("--causalpfn-pseudo-learning-rate", type=float, default=0.05)
+    parser.add_argument("--causalpfn-pseudo-propensity-clip", type=float, default=0.02)
+    parser.add_argument("--causalpfn-correction-strength", type=float, default=0.5)
+    parser.add_argument("--causalpfn-correction-folds", type=int, default=3)
+    parser.add_argument("--causalpfn-correction-center", action="store_true")
+    parser.add_argument(
+        "--causalpfn-correction-winsor-quantile", type=float, default=0.01
+    )
+    parser.add_argument("--causalpfn-correction-ridge-alpha", type=float, default=10.0)
+    parser.add_argument("--causalpfn-correction-max-iter", type=int, default=50)
+    parser.add_argument(
+        "--causalpfn-correction-learning-rate", type=float, default=0.03
+    )
+    parser.add_argument(
+        "--causalpfn-correction-max-leaf-nodes", type=int, default=15
+    )
+    parser.add_argument(
+        "--causalpfn-correction-min-samples-leaf", type=int, default=200
+    )
+    parser.add_argument(
+        "--causalpfn-correction-l2-regularization", type=float, default=1.0
+    )
+    parser.add_argument("--causalpfn-x-folds", type=int, default=3)
     parser.add_argument(
         "--save-transformed-data",   # 默认不保存完整的处理后矩阵，因为大型数据可能占很多空间。
         action="store_true",
@@ -190,6 +226,40 @@ def main():
             num_neighbours=args.causalpfn_num_neighbours,
             calibrate=args.causalpfn_calibrate,
             verbose=args.causalpfn_verbose,
+            finetune_epochs=args.causalpfn_ft_epochs,
+            finetune_learning_rate=args.causalpfn_ft_learning_rate,
+            finetune_weight_decay=args.causalpfn_ft_weight_decay,
+            finetune_context_length=args.causalpfn_ft_context_length,
+            finetune_query_length=args.causalpfn_ft_query_length,
+            finetune_tasks_per_epoch=args.causalpfn_ft_tasks_per_epoch,
+            finetune_validation_tasks=args.causalpfn_ft_validation_tasks,
+            finetune_validation_fraction=args.causalpfn_ft_validation_fraction,
+            finetune_patience=args.causalpfn_ft_patience,
+            finetune_gradient_clip=args.causalpfn_ft_gradient_clip,
+            pseudo_folds=args.causalpfn_pseudo_folds,
+            pseudo_max_iter=args.causalpfn_pseudo_max_iter,
+            pseudo_max_leaf_nodes=args.causalpfn_pseudo_max_leaf_nodes,
+            pseudo_learning_rate=args.causalpfn_pseudo_learning_rate,
+            pseudo_propensity_clip=args.causalpfn_pseudo_propensity_clip,
+            correction_strength=args.causalpfn_correction_strength,
+            correction_folds=args.causalpfn_correction_folds,
+            correction_center=args.causalpfn_correction_center,
+            correction_winsor_quantile=(
+                args.causalpfn_correction_winsor_quantile
+            ),
+            correction_ridge_alpha=args.causalpfn_correction_ridge_alpha,
+            correction_max_iter=args.causalpfn_correction_max_iter,
+            correction_learning_rate=args.causalpfn_correction_learning_rate,
+            correction_max_leaf_nodes=(
+                args.causalpfn_correction_max_leaf_nodes
+            ),
+            correction_min_samples_leaf=(
+                args.causalpfn_correction_min_samples_leaf
+            ),
+            correction_l2_regularization=(
+                args.causalpfn_correction_l2_regularization
+            ),
+            x_folds=args.causalpfn_x_folds,
         )
         fit_start = time.perf_counter()
         model.fit(
@@ -221,6 +291,130 @@ def main():
             "predict_seconds": predict_seconds,
             **evaluate_uplift(y_eval, cate, t_eval),
         }
+        if model_name == "causalpfn_head_ft":
+            diagnostics = vars(model.pseudo_label_diagnostics_)
+            row.update(
+                {
+                    "finetune_epochs_run": model.finetune_epochs_run_,
+                    "finetune_best_inner_validation_loss": (
+                        model.best_finetune_validation_loss_
+                    ),
+                    "finetune_head_parameter_delta_norm": (
+                        model.head_parameter_delta_norm_
+                    ),
+                    "finetune_trainable_parameters": (
+                        model.trainable_parameter_count_
+                    ),
+                    "finetune_frozen_parameters": model.frozen_parameter_count_,
+                    "pseudo_propensity": diagnostics["propensity"],
+                    "pseudo_folds_resolved": diagnostics["n_folds"],
+                }
+            )
+            (
+                output_dir / "causalpfn_head_ft_training.json"
+            ).write_text(
+                json.dumps(
+                    {
+                        "model": model_name,
+                        "pseudo_label_diagnostics": diagnostics,
+                        "history": model.finetune_history_,
+                        "best_inner_validation_loss": (
+                            model.best_finetune_validation_loss_
+                        ),
+                        "epochs_run": model.finetune_epochs_run_,
+                        "head_parameter_delta_norm": (
+                            model.head_parameter_delta_norm_
+                        ),
+                        "trainable_parameters": model.trainable_parameter_count_,
+                        "frozen_parameters": model.frozen_parameter_count_,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        if model_name in {
+            "causalpfn_ridge_correction",
+            "causalpfn_hgb_correction",
+        }:
+            diagnostics = model.correction_diagnostics_.to_dict()
+            components = model.last_prediction_components_
+            base_cate = components["base_cate"]
+            correction = components["correction"]
+            base_final_correlation = (
+                float(np.corrcoef(base_cate, cate)[0, 1])
+                if np.std(base_cate) > 0 and np.std(cate) > 0
+                else 0.0
+            )
+            row.update(
+                {
+                    "correction_kind": diagnostics["correction_kind"],
+                    "correction_strength": diagnostics["correction_strength"],
+                    "correction_folds_resolved": diagnostics["n_folds"],
+                    "correction_mean": float(np.mean(correction)),
+                    "correction_std": float(np.std(correction)),
+                    "correction_base_final_correlation": (
+                        base_final_correlation
+                    ),
+                    "correction_oof_dr_correlation": (
+                        diagnostics["oof_dr_correlation"]
+                    ),
+                }
+            )
+            (
+                output_dir / f"{model_name}_training.json"
+            ).write_text(
+                json.dumps(
+                    {
+                        "model": model_name,
+                        "diagnostics": diagnostics,
+                        "evaluation_correction": {
+                            "mean": float(np.mean(correction)),
+                            "std": float(np.std(correction)),
+                            "min": float(np.min(correction)),
+                            "max": float(np.max(correction)),
+                            "base_final_correlation": (
+                                base_final_correlation
+                            ),
+                        },
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            pd.DataFrame(
+                {
+                    "epk_id": id_eval,
+                    "base_cate": base_cate,
+                    "correction": correction,
+                    "correction_strength": (
+                        diagnostics["correction_strength"]
+                    ),
+                    "cate_pred": cate,
+                }
+            ).to_parquet(
+                output_dir / f"{model_name}_components.parquet",
+                index=False,
+            )
+        if model_name == "causalpfn_x_learner":
+            diagnostics = model.diagnostics_.to_dict()
+            row.update(
+                {
+                    "causalpfn_x_folds_resolved": diagnostics["n_folds"],
+                    "causalpfn_x_propensity": diagnostics["propensity"],
+                    "causalpfn_x_d0_std": diagnostics["d0_std"],
+                    "causalpfn_x_d1_std": diagnostics["d1_std"],
+                }
+            )
+            (output_dir / "causalpfn_x_learner_training.json").write_text(
+                json.dumps(
+                    {"model": model_name, "diagnostics": diagnostics},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         metrics_rows.append(row)
         prediction_rows.append(
             pd.DataFrame(
