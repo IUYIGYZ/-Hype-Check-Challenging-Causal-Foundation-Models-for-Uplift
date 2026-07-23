@@ -53,6 +53,8 @@ def qini_curve(y, score, treatment) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _area(x: np.ndarray, y: np.ndarray) -> float:
+    if hasattr(np, "trapezoid"):
+        return float(np.trapezoid(y, x))
     return float(np.trapz(y, x))
 
 

@@ -19,7 +19,7 @@ from baseline_benchmark.metrics import evaluate_uplift
 from baseline_benchmark.models import available_models, make_model
 
 
-DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet"
+DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet,causalpfn"
 EVALUATION_SPLITS = ("validation", "test")
 
 
@@ -58,6 +58,13 @@ def parse_args():
     parser.add_argument("--neural-learning-rate", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=12)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
+    parser.add_argument("--causalpfn-model-path", default="vdblm/causalpfn")
+    parser.add_argument("--causalpfn-cache-dir", type=Path, default=None)
+    parser.add_argument("--causalpfn-max-context-length", type=int, default=4096)
+    parser.add_argument("--causalpfn-max-query-length", type=int, default=4096)
+    parser.add_argument("--causalpfn-num-neighbours", type=int, default=1024)
+    parser.add_argument("--causalpfn-calibrate", action="store_true")
+    parser.add_argument("--causalpfn-verbose", action="store_true")
     parser.add_argument(
         "--save-transformed-data",   # 默认不保存完整的处理后矩阵，因为大型数据可能占很多空间。
         action="store_true",
@@ -176,6 +183,13 @@ def main():
             hidden_dim=args.hidden_dim,
             patience=args.patience,
             device=args.device,
+            model_path=args.causalpfn_model_path,
+            cache_dir=args.causalpfn_cache_dir,
+            max_context_length=args.causalpfn_max_context_length,
+            max_query_length=args.causalpfn_max_query_length,
+            num_neighbours=args.causalpfn_num_neighbours,
+            calibrate=args.causalpfn_calibrate,
+            verbose=args.causalpfn_verbose,
         )
         fit_start = time.perf_counter()
         model.fit(

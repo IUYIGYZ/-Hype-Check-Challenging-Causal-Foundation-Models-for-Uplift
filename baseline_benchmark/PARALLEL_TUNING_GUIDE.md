@@ -167,7 +167,7 @@ SSH 断开不会影响任务；但服务器重启、断电、进程被系统 OOM
 
 `run_parallel_tuning.py` supervises independent RetailHero, Hillstrom, LZD, and Criteo tuning jobs. At most two ordinary datasets run concurrently, with one physical GPU assigned to each job. Criteo contains 13,979,592 rows and is exclusive by default: it starts only after other running jobs finish and prevents another dataset from starting beside it.
 
-Each dataset tunes T-Learner, X-Learner, DR-Learner, and DragonNet sequentially. The launcher never supplies `--final-test`; it performs validation tuning only.
+Each dataset tunes T-Learner, X-Learner, DR-Learner, and DragonNet sequentially, then evaluates pretrained CausalPFN once with fixed parameters. The launcher never supplies `--final-test`; it performs validation selection only.
 
 ## 2. Detached small-data check
 

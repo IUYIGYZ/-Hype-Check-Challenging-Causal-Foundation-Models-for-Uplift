@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 SUPPORTED_DATASETS = ("retailhero", "hillstrom", "lzd", "criteo")
-DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet"
+DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet,causalpfn"
 
 
 def parse_args():

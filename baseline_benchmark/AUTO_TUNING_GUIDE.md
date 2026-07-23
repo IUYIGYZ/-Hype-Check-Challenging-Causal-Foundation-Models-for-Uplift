@@ -147,7 +147,7 @@ tuning_results/<dataset>/tuning_seed_<seed>_<timestamp>/
 
 ## 1. What the script does
 
-`tune_baselines.py` performs reproducible random search independently for T-Learner, X-Learner, DR-Learner, and DragonNet (basic, without targeted regularization).
+`tune_baselines.py` performs reproducible random search independently for T-Learner, X-Learner, DR-Learner, and DragonNet (basic, without targeted regularization). CausalPFN is a pretrained in-context estimator, so it is evaluated in one fixed trial without task-specific tuning.
 
 Data are prepared once. Every trial shares exactly the same sampled rows, train/validation/test split, fitted preprocessor, and transformed feature matrices. Each model selects its own hyperparameters.
 

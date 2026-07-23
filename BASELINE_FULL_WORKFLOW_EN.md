@@ -6,7 +6,7 @@ This document describes the completed baseline work: cleaned-data organization, 
 
 Implementation: `项目/baseline_benchmark/`.
 
-CausalPFN is not connected yet. A later CausalPFN adapter only needs to predict `cate_pred` for the same test IDs and use the same evaluation functions.
+CausalPFN is connected through an adapter around the official `causalpfn.CATEEstimator`. It predicts `cate_pred` for the same held-out IDs and uses the same evaluation functions as all baselines.
 
 Given pre-treatment features `X`, binary treatment `T`, and binary outcome `Y`, the estimand is:
 
@@ -299,7 +299,7 @@ Two pytest warnings originate from the environment's numexpr/distutils deprecati
 
 ## 10. Current Limitations and Next Steps
 
-- CausalPFN is not connected yet; reuse the same split/numeric data and metrics next.
+- CausalPFN is connected through the official pretrained estimator and reuses the same split, numeric data, and metrics.
 - Causal Forest is absent because EconML is not installed; add CausalForestDML or GRF for the final main table.
 - DragonNet does not include targeted regularization.
 - Formal validation-set hyperparameter search is not implemented.

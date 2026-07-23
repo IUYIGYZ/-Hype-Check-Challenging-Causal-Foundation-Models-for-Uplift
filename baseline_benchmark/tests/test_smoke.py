@@ -19,8 +19,14 @@ def synthetic_rct(seed=7, n=1200, d=6):
     return X, t, y, tau
 
 
-def test_available_model_set_is_exactly_the_requested_four():
-    assert available_models() == ["t_learner", "x_learner", "dr_learner", "dragonnet"]
+def test_available_model_set_includes_causalpfn():
+    assert available_models() == [
+        "t_learner",
+        "x_learner",
+        "dr_learner",
+        "dragonnet",
+        "causalpfn",
+    ]
 
 
 def test_traditional_models_produce_finite_cate():

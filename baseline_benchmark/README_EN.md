@@ -4,7 +4,9 @@
 
 This directory implements a runnable baseline comparison for binary-treatment, binary-outcome uplift experiments. Every model receives the same cleaned samples, split, transformed feature matrix, treatment labels, outcomes, and test-set metrics.
 
-CausalPFN itself is not included yet. It can be added later by producing `cate_pred` for the same test IDs and passing those predictions to `evaluate_uplift`.
+CausalPFN is integrated through the official `causalpfn` package. It receives the
+same transformed training matrix and produces `cate_pred` for the same held-out
+IDs as every baseline, so all existing Qini/AUUC calculations remain unchanged.
 
 ## Implemented Models
 
@@ -12,6 +14,13 @@ CausalPFN itself is not included yet. It can be added later by producing `cate_p
 - `x_learner`: imputed-effect learner designed to work well when treatment-arm sizes are imbalanced.
 - `dr_learner`: cross-fitted doubly robust pseudo-outcome followed by an effect regression.
 - `dragonnet`: a shared representation, two potential-outcome heads, and a propensity head.
+- `causalpfn`: the official pretrained CATE estimator, used without task-specific tuning.
+
+The first CausalPFN run downloads the official `vdblm/causalpfn` checkpoint from
+Hugging Face unless `--causalpfn-model-path` points to a local checkpoint. Its
+default context/query limits are 4096 and can be changed with the corresponding
+`--causalpfn-*` command-line options. On small samples, the adapter safely clips
+the FAISS neighbour count to the smaller treatment arm.
 
 The current DragonNet implementation is the basic architecture and does **not** implement targeted regularization. Report it as `DragonNet (basic, no targeted regularization)`. Use the authors' implementation or CATENets for strict paper-level reproduction.
 
@@ -109,7 +118,7 @@ All models:
 ```bash
 conda run -n Torch25 python run_baselines.py \
   --dataset retailhero \
-  --models t_learner,x_learner,dr_learner,dragonnet \
+  --models t_learner,x_learner,dr_learner,dragonnet,causalpfn \
   --max-rows 50000 \
   --epochs 100 \
   --seed 0
@@ -194,7 +203,7 @@ Real marketing RCTs do not provide unit-level true CATE, so PEHE is not computed
 
 ## Automatic Tuning
 
-See [AUTO_TUNING_GUIDE.md](AUTO_TUNING_GUIDE.md) for full-data tuning, resume, and final-test commands for all four models.
+See [AUTO_TUNING_GUIDE.md](AUTO_TUNING_GUIDE.md) for full-data tuning, resume, and final-test commands. T/X/DR and DragonNet are tuned; pretrained CausalPFN is evaluated once with fixed parameters.
 
 
 See [PARALLEL_TUNING_GUIDE.md](PARALLEL_TUNING_GUIDE.md) for detached multi-dataset scheduling and GPU assignment.

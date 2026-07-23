@@ -20,13 +20,14 @@ from baseline_benchmark.metrics import evaluate_uplift
 from baseline_benchmark.models import available_models, make_model
 
 
-DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet"
+DEFAULT_MODELS = "t_learner,x_learner,dr_learner,dragonnet,causalpfn"
 TRADITIONAL_MODELS = {"t_learner", "x_learner", "dr_learner"}
 MODEL_OFFSETS = {
     "t_learner": 10_000,
     "x_learner": 20_000,
     "dr_learner": 30_000,
     "dragonnet": 40_000,
+    "causalpfn": 50_000,
 }
 OBJECTIVES = (
     "qini_auc_normalized",
@@ -72,6 +73,9 @@ SEARCH_SPACE = {
         "weight_decay": "log-uniform[0.000001, 0.001], plus 0",
         "patience": [10, 15, 20],
     },
+    "causalpfn": {
+        "parameters": "fixed pretrained estimator; no task-specific tuning",
+    },
 }
 
 
@@ -79,7 +83,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description=(
             "Random-search tuning for T-Learner, X-Learner, DR-Learner, and "
-            "DragonNet. Validation is used for selection; test is untouched "
+            "DragonNet, plus fixed evaluation of pretrained CausalPFN. "
+            "Validation is used for selection; test is untouched "
             "unless --final-test is explicitly supplied."
         )
     )
@@ -159,6 +164,8 @@ def _positive_count(value: int | None, *, name: str) -> int | None:
 
 
 def _target_trials(model_name: str, args) -> int:
+    if model_name == "causalpfn":
+        return 1
     if model_name == "dragonnet" and args.dragonnet_trials is not None:
         return args.dragonnet_trials
     if model_name in TRADITIONAL_MODELS and args.traditional_trials is not None:
@@ -183,6 +190,8 @@ def _sample_params(
         raise ValueError(f"Unsupported model {model_name!r}")
 
     if trial == 0:
+        if model_name == "causalpfn":
+            return {}
         if model_name in {"t_learner", "x_learner"}:
             return {"max_iter": 150, "max_leaf_nodes": 31, "learning_rate": 0.05}
         if model_name == "dr_learner":
@@ -200,6 +209,9 @@ def _sample_params(
             "weight_decay": 1e-4,
             "patience": 12,
         }
+
+    if model_name == "causalpfn":
+        raise ValueError("CausalPFN is pretrained and has exactly one fixed trial")
 
     rng = np.random.default_rng(search_seed + MODEL_OFFSETS[model_name] + trial * 1009)
     if model_name in TRADITIONAL_MODELS:
@@ -296,12 +308,16 @@ def _select_best(
 
 
 def _cleanup_model(model_name: str, model=None) -> None:
-    if model_name == "dragonnet":
+    if model_name in {"dragonnet", "causalpfn"}:
         try:
             import torch
 
             if model is not None and hasattr(model, "model_"):
                 model.model_.to("cpu")
+            if model is not None and hasattr(model, "estimator_"):
+                icl_model = getattr(model.estimator_, "icl_model", None)
+                if icl_model is not None:
+                    icl_model.to("cpu")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except (ImportError, OSError):
@@ -321,7 +337,7 @@ def _fit_and_evaluate(
 ):
     kwargs = dict(params)
     kwargs["seed"] = model_seed
-    if model_name == "dragonnet":
+    if model_name in {"dragonnet", "causalpfn"}:
         kwargs["device"] = device
     model = make_model(model_name, **kwargs)
 

@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--seeds", default="0,1,2,3,4,5,6,7,8,9")
     parser.add_argument(
         "--models",
-        default="t_learner,x_learner,dr_learner,dragonnet",
+        default="t_learner,x_learner,dr_learner,dragonnet,causalpfn",
     )
     parser.add_argument("--max-rows", type=int, default=50_000)
     parser.add_argument("--epochs", type=int, default=100)
@@ -43,6 +43,13 @@ def parse_args():
     parser.add_argument("--neural-learning-rate", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=12)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    parser.add_argument("--causalpfn-model-path", default="vdblm/causalpfn")
+    parser.add_argument("--causalpfn-cache-dir", type=Path, default=None)
+    parser.add_argument("--causalpfn-max-context-length", type=int, default=4096)
+    parser.add_argument("--causalpfn-max-query-length", type=int, default=4096)
+    parser.add_argument("--causalpfn-num-neighbours", type=int, default=1024)
+    parser.add_argument("--causalpfn-calibrate", action="store_true")
+    parser.add_argument("--causalpfn-verbose", action="store_true")
     parser.add_argument(
         "--evaluation-split",
         choices=["validation", "test"],
@@ -101,6 +108,24 @@ def main():
                 "--output-root",
                 str(runs_dir),
             ]
+            command.extend(
+                [
+                    "--causalpfn-model-path",
+                    args.causalpfn_model_path,
+                    "--causalpfn-max-context-length",
+                    str(args.causalpfn_max_context_length),
+                    "--causalpfn-max-query-length",
+                    str(args.causalpfn_max_query_length),
+                    "--causalpfn-num-neighbours",
+                    str(args.causalpfn_num_neighbours),
+                ]
+            )
+            if args.causalpfn_cache_dir is not None:
+                command.extend(["--causalpfn-cache-dir", str(args.causalpfn_cache_dir)])
+            if args.causalpfn_calibrate:
+                command.append("--causalpfn-calibrate")
+            if args.causalpfn_verbose:
+                command.append("--causalpfn-verbose")
             print("RUN", " ".join(command), flush=True)
             subprocess.run(command, check=True)
 
@@ -147,6 +172,16 @@ def main():
                 "neural_learning_rate": args.neural_learning_rate,
                 "patience": args.patience,
                 "device": args.device,
+                "causalpfn_model_path": args.causalpfn_model_path,
+                "causalpfn_cache_dir": (
+                    str(args.causalpfn_cache_dir)
+                    if args.causalpfn_cache_dir is not None
+                    else None
+                ),
+                "causalpfn_max_context_length": args.causalpfn_max_context_length,
+                "causalpfn_max_query_length": args.causalpfn_max_query_length,
+                "causalpfn_num_neighbours": args.causalpfn_num_neighbours,
+                "causalpfn_calibrate": args.causalpfn_calibrate,
                 "evaluation_split": args.evaluation_split,
                 "python": sys.executable,
             },

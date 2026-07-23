@@ -323,7 +323,7 @@ Every model receives the same:
 - T and Y labels;
 - evaluation metrics.
 
-Only the learning method differs. Results from T-Learner, X-Learner, DR-Learner, and DragonNet can therefore be compared fairly.
+Only the learning method differs. Results from T-Learner, X-Learner, DR-Learner, DragonNet, and CausalPFN can therefore be compared fairly.
 
 ## 15. Direct usage
 

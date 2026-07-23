@@ -503,7 +503,7 @@ This measures how much predicted treatment effects differ across users.
 
 ## 17. Recommended use for tuning and model selection
 
-For T-Learner, X-Learner, DR-Learner, and DragonNet, the recommended priority is:
+For T-Learner, X-Learner, DR-Learner, DragonNet, and CausalPFN, the recommended priority is:
 
 1. use validation `qini_auc_normalized` as the primary tuning objective;
 2. check whether `uplift_auc_normalized` supports a similar conclusion;
@@ -577,7 +577,7 @@ The current implementation was checked with the following conclusions:
 - degenerate normalization denominators return `NaN` rather than unsafe values;
 - the complete project test result was `23 passed, 1 skipped`.
 
-No core formula problem was found that would directly invalidate the comparison among T-Learner, X-Learner, DR-Learner, and DragonNet. The file can continue to be used for baseline tuning and evaluation.
+No core formula problem was found that would directly invalidate the comparison among T-Learner, X-Learner, DR-Learner, DragonNet, and CausalPFN. The file can continue to be used for tuning and evaluation.
 
 The main points requiring careful interpretation are:
 

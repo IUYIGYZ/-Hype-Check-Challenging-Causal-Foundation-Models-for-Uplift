@@ -18,7 +18,7 @@ from baseline_benchmark.metrics import evaluate_uplift
 from baseline_benchmark.models import available_models, make_model
 
 
-MODEL_ORDER = ["t_learner", "x_learner", "dr_learner", "dragonnet"]
+MODEL_ORDER = ["t_learner", "x_learner", "dr_learner", "dragonnet", "causalpfn"]
 OUTPUT_COLUMNS = [
     "dataset",
     "outcome",
@@ -250,12 +250,16 @@ def _fill_data_fields(row: dict[str, object], data) -> None:
 
 
 def _cleanup_model(model_name: str, model=None) -> None:
-    if model_name == "dragonnet":
+    if model_name in {"dragonnet", "causalpfn"}:
         try:
             import torch
 
             if model is not None and hasattr(model, "model_"):
                 model.model_.to("cpu")
+            if model is not None and hasattr(model, "estimator_"):
+                icl_model = getattr(model.estimator_, "icl_model", None)
+                if icl_model is not None:
+                    icl_model.to("cpu")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except (ImportError, OSError):
@@ -267,7 +271,7 @@ def _cleanup_model(model_name: str, model=None) -> None:
 def _evaluate_model(model_name: str, params: dict[str, object], data, seed: int, device: str):
     kwargs = dict(params)
     kwargs["seed"] = seed
-    if model_name == "dragonnet":
+    if model_name in {"dragonnet", "causalpfn"}:
         kwargs["device"] = device
     model = make_model(model_name, **kwargs)
     fit_start = time.perf_counter()

@@ -207,11 +207,12 @@ TRADITIONAL_MODELS = {
     "x_learner": XLearner,
     "dr_learner": DRLearner,
 }
+FOUNDATION_MODELS = {"causalpfn"}
 NEURAL_MODELS = {"dragonnet"}
 
 
 def available_models() -> list[str]:
-    return [*TRADITIONAL_MODELS, *sorted(NEURAL_MODELS)]
+    return [*TRADITIONAL_MODELS, *sorted(NEURAL_MODELS), *sorted(FOUNDATION_MODELS)]
 
 
 def make_model(name: str, **kwargs):
@@ -236,4 +237,19 @@ def make_model(name: str, **kwargs):
             "device",
         }
         return DragonNetEstimator(**{k: v for k, v in kwargs.items() if k in allowed})
+    if key in FOUNDATION_MODELS:
+        from .causalpfn import CausalPFNEstimator
+
+        allowed = {
+            "seed",
+            "device",
+            "model_path",
+            "cache_dir",
+            "max_context_length",
+            "max_query_length",
+            "num_neighbours",
+            "calibrate",
+            "verbose",
+        }
+        return CausalPFNEstimator(**{k: v for k, v in kwargs.items() if k in allowed})
     raise ValueError(f"Unknown model {name!r}; choose from {available_models()}")
